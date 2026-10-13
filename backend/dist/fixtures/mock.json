@@ -1,0 +1,5 @@
+{
+    "scan": { "id": "mock-1", "regions": [], "summary": "mock scan" },
+    "inspect": { "id": "mock-1", "steps": [], "hints": [] },
+    "hint": { "text": "Check multiplier sign", "level": "info" }
+}
