@@ -7,9 +7,16 @@ import { C, F } from '@/theme';
 interface HeaderProps {
   onOpenTypst: () => void;
   onBack?: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenTypst, onBack }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onOpenTypst,
+  onBack,
+  title = 'MathSentry Analysis',
+  subtitle = 'OCR → LaTeX → AST Verified',
+}) => {
   const insets = useSafeAreaInsets();
 
   return (
@@ -30,8 +37,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenTypst, onBack }) => {
           <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2} />
         </Pressable>
         <View style={styles.titleColumn}>
-          <Text style={styles.title}>MathSentry Analysis</Text>
-          <Text style={styles.subtitle}>OCR → LaTeX → AST Verified</Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
       </View>
 

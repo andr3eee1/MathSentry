@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -45,16 +45,33 @@ import { HistorySheet } from '@/components/sheets/HistorySheet';
 import { ProfileSheet } from '@/components/sheets/ProfileSheet';
 import { AuthSheet } from '@/components/sheets/AuthSheet';
 import { AuthScreen } from '@/components/AuthScreen';
+import { DashboardScreen } from '@/components/DashboardScreen';
 import { ScanOverlay } from '@/components/ScanOverlay';
 import { showToast } from '@/components/ToastHelper';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
 
 interface MainAnalysisScreenProps {
+  onBackToDashboard: () => void;
   onLogout?: () => void;
+  activeProofId?: string;
+  onOpenTypst: () => void;
+  onOpenTheorem: () => void;
+  onOpenHistory: () => void;
+  onOpenProfile: () => void;
+  onOpenScan: () => void;
 }
 
-function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
+function MainAnalysisScreen({
+  onBackToDashboard,
+  onLogout,
+  activeProofId,
+  onOpenTypst,
+  onOpenTheorem,
+  onOpenHistory,
+  onOpenProfile,
+  onOpenScan,
+}: MainAnalysisScreenProps) {
   const insets = useSafeAreaInsets();
 
   // State model
@@ -64,22 +81,39 @@ function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
   const [hintOpen, setHintOpen] = useState(true);
   const [shakeKey, setShakeKey] = useState(0);
 
-  // Scan modal state
-  const [scanOpen, setScanOpen] = useState(false);
-  // Auth modal state
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const handleSelectProof = async (id: string) => {
+    try {
+      showToast('Se încarcă analiza…', 'done');
+      const data = await api.getProofById(id);
+      if (data) {
+        if (data.phase === 'sound') {
+          setPhase('sound');
+          setFixed(true);
+          setInspectorOpen(false);
+        } else {
+          setPhase('flaw');
+          setFixed(false);
+          setInspectorOpen(false);
+        }
+        showToast(
+          `Încărcat: ${data.domain || 'Analiză'} (${data.scorePercentage}%)`,
+          'done',
+          'success'
+        );
+      }
+    } catch {
+      showToast('Analiza a fost selectată.', 'done');
+    }
+  };
 
-  // BottomSheetModal references
-  const typstSheetRef = useRef<BottomSheetModal>(null);
-  const theoremSheetRef = useRef<BottomSheetModal>(null);
-  const historySheetRef = useRef<BottomSheetModal>(null);
-  const profileSheetRef = useRef<BottomSheetModal>(null);
+  useEffect(() => {
+    if (activeProofId) {
+      handleSelectProof(activeProofId);
+    }
+  }, [activeProofId]);
 
   // Re-Analyze logic:
   // Evaluates AST logic against backend engine (with local fallback)
-  // phase → scanning, after 1200ms:
-  // if fixed → phase sound, success haptic, toast "AST Logic Sound ✓";
-  // else phase flaw, trigger shake, expand inspector, warning toast "Step 3 still unverified — check the condition on 1 + x."
   const handleReAnalyze = async () => {
     if (phase === 'scanning') return;
     setPhase('scanning');
@@ -126,31 +160,6 @@ function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
     }
   };
 
-  const handleSelectProof = async (id: string) => {
-    try {
-      showToast('Se încarcă analiza…', 'done');
-      const data = await api.getProofById(id);
-      if (data) {
-        if (data.phase === 'sound') {
-          setPhase('sound');
-          setFixed(true);
-          setInspectorOpen(false);
-        } else {
-          setPhase('flaw');
-          setFixed(false);
-          setInspectorOpen(false);
-        }
-        showToast(
-          `Încărcat: ${data.domain || 'Analiză'} (${data.scorePercentage}%)`,
-          'done',
-          'success'
-        );
-      }
-    } catch {
-      showToast('Analiza a fost selectată.', 'done');
-    }
-  };
-
   const handleReset = () => {
     setPhase('flaw');
     setFixed(false);
@@ -160,10 +169,10 @@ function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
 
   return (
     <View style={styles.screenContainer}>
-      {/* 1. Header (dark, includes safe-area top inset) */}
+      {/* 1. Header (dark, includes safe-area top inset, back returns to dashboard) */}
       <Header
-        onOpenTypst={() => typstSheetRef.current?.present()}
-        onBack={() => onLogout?.()}
+        onOpenTypst={onOpenTypst}
+        onBack={onBackToDashboard}
       />
 
       {/* 2. Pipeline strip */}
@@ -191,18 +200,86 @@ function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
         hintOpen={hintOpen}
         onToggleHint={() => setHintOpen((prev) => !prev)}
         onReAnalyze={handleReAnalyze}
-        onOpenTheorem={() => theoremSheetRef.current?.present()}
+        onOpenTheorem={onOpenTheorem}
         onReset={handleReset}
       />
 
       {/* 5. Bottom Nav — absolute bottom, height 80 + insets.bottom, zIndex 30 */}
       <BottomNav
-        onOpenHistory={() => historySheetRef.current?.present()}
-        onOpenProfile={() => profileSheetRef.current?.present()}
-        onOpenScan={() => setScanOpen(true)}
+        onOpenHistory={onOpenHistory}
+        onOpenProfile={onOpenProfile}
+        onOpenScan={onOpenScan}
       />
+    </View>
+  );
+}
 
-      {/* 6. Sheets / Scan overlay */}
+function RootAppContent() {
+  const { user, isGuest, isLoading, logout } = useAuth();
+  const [currentView, setCurrentView] = useState<'dashboard' | 'analysis'>('dashboard');
+  const [activeProofId, setActiveProofId] = useState<string>('analysis_bernoulli_01');
+
+  // BottomSheetModal references
+  const typstSheetRef = useRef<BottomSheetModal>(null);
+  const theoremSheetRef = useRef<BottomSheetModal>(null);
+  const historySheetRef = useRef<BottomSheetModal>(null);
+  const profileSheetRef = useRef<BottomSheetModal>(null);
+
+  // Modals state
+  const [scanOpen, setScanOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  const handleSelectProof = (id: string) => {
+    setActiveProofId(id);
+    setCurrentView('analysis');
+    historySheetRef.current?.dismiss();
+  };
+
+  const handleOpenAnalysis = (proofId?: string) => {
+    if (proofId) {
+      setActiveProofId(proofId);
+    }
+    setCurrentView('analysis');
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={C.primary} />
+      </View>
+    );
+  }
+
+  if (!user && !isGuest) {
+    return <AuthScreen />;
+  }
+
+  return (
+    <View style={styles.root}>
+      {currentView === 'dashboard' ? (
+        <DashboardScreen
+          onOpenAnalysis={handleOpenAnalysis}
+          onOpenScan={() => setScanOpen(true)}
+          onOpenHistory={() => historySheetRef.current?.present()}
+          onOpenProfile={() => profileSheetRef.current?.present()}
+          onOpenTypst={() => typstSheetRef.current?.present()}
+          onOpenTheorem={() => theoremSheetRef.current?.present()}
+          onLogout={logout}
+        />
+      ) : (
+        <MainAnalysisScreen
+          onBackToDashboard={() => setCurrentView('dashboard')}
+          onLogout={logout}
+          activeProofId={activeProofId}
+          onOpenTypst={() => typstSheetRef.current?.present()}
+          onOpenTheorem={() => theoremSheetRef.current?.present()}
+          onOpenHistory={() => historySheetRef.current?.present()}
+          onOpenProfile={() => profileSheetRef.current?.present()}
+          onOpenScan={() => setScanOpen(true)}
+        />
+      )}
+
+      {/* Shared Sheets & Overlays */}
       <TypstSheet ref={typstSheetRef} />
       <TheoremSheet ref={theoremSheetRef} />
       <HistorySheet
@@ -220,28 +297,13 @@ function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
       <ScanOverlay
         visible={scanOpen}
         onClose={() => setScanOpen(false)}
-        onScanComplete={() => handleReset()}
+        onScanComplete={() => {
+          setScanOpen(false);
+          setCurrentView('analysis');
+        }}
       />
     </View>
   );
-}
-
-function RootAppContent() {
-  const { user, isGuest, isLoading, logout } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.primary} />
-      </View>
-    );
-  }
-
-  if (!user && !isGuest) {
-    return <AuthScreen />;
-  }
-
-  return <MainAnalysisScreen onLogout={logout} />;
 }
 
 export default function AnalysisScreen() {
