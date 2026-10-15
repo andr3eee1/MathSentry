@@ -41,15 +41,15 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-canvas text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-primary selection:text-white">
       {/* =========================================================================
-          SECTION A: STICKY / HERO HEADER
+          SECTION A: TRANSPARENT HERO HEADER
          ========================================================================= */}
-      <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#0B1120]/80 border-b border-slate-800/80 transition-colors">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-50 w-full bg-transparent transition-colors">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
           {/* Brand Logo */}
           <a href="#" className="flex items-center gap-3 group">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-transform">
               <span className="font-math text-white text-lg font-medium leading-none select-none">
                 ∑
               </span>
@@ -60,7 +60,7 @@ export default function App() {
           </a>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-200">
             <a
               href="#how"
               className="hover:text-white transition-colors"
@@ -77,7 +77,7 @@ export default function App() {
               href="#comparison"
               className="hover:text-white transition-colors"
             >
-              Comparison
+              Why MathSentry
             </a>
             <a
               href="#pricing"
@@ -97,7 +97,7 @@ export default function App() {
           <div className="hidden md:flex items-center gap-3">
             <a
               href="/app"
-              className="inline-flex items-center justify-center px-5 py-2 rounded-full text-sm font-semibold bg-white text-[#0B1120] hover:bg-slate-100 hover:opacity-95 transition-all shadow-sm"
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-deep hover:bg-slate-100 hover:opacity-95 transition-all shadow-sm"
             >
               Launch app
             </a>
@@ -106,7 +106,7 @@ export default function App() {
           {/* Mobile Hamburger Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-slate-300 hover:text-white focus:outline-none"
+            className="md:hidden p-2 text-slate-200 hover:text-white focus:outline-none"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -115,7 +115,7 @@ export default function App() {
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0B1120] border-b border-slate-800 px-6 py-5 flex flex-col gap-4 text-sm font-medium text-slate-300 animate-fadeIn">
+          <div className="md:hidden bg-slate-deep/95 backdrop-blur-md border-b border-slate-700/80 px-6 py-5 flex flex-col gap-4 text-sm font-medium text-slate-200 animate-fadeIn">
             <a
               href="#how"
               onClick={() => setMobileMenuOpen(false)}
@@ -135,7 +135,7 @@ export default function App() {
               onClick={() => setMobileMenuOpen(false)}
               className="hover:text-white py-1"
             >
-              Comparison
+              Why MathSentry
             </a>
             <a
               href="#pricing"
@@ -151,10 +151,10 @@ export default function App() {
             >
               FAQ
             </a>
-            <div className="pt-2 border-t border-slate-800">
+            <div className="pt-2 border-t border-slate-700/80">
               <a
                 href="/app"
-                className="w-full text-center inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-[#0B1120] hover:bg-slate-100 transition-all"
+                className="w-full text-center inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-slate-deep hover:bg-slate-100 transition-all"
               >
                 Launch app
               </a>
@@ -166,7 +166,7 @@ export default function App() {
       {/* =========================================================================
           SECTION B: HERO SECTION
          ========================================================================= */}
-      <section className="relative bg-slate-deep overflow-hidden pt-12 pb-24 md:pt-20 md:pb-32 text-white">
+      <section className="relative -mt-20 bg-slate-deep overflow-hidden pt-32 pb-24 md:pt-40 md:pb-32 text-white">
         {/* Radial masked bg-grid background */}
         <div
           className="absolute inset-0 bg-grid opacity-75 pointer-events-none"
@@ -196,9 +196,10 @@ export default function App() {
                 </span>
               </div>
 
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-white leading-[1.08] mb-6">
-                Your proof has{' '}
+              {/* Headline with 'one weak step.' on its own new line */}
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-white leading-[1.12] mb-6">
+                Your proof has
+                <br />
                 <span className="text-gradient font-math italic font-normal">
                   one weak step.
                 </span>
@@ -207,7 +208,7 @@ export default function App() {
               </h1>
 
               {/* Subheading Paragraph */}
-              <p className="max-w-xl text-lg sm:text-xl text-slate-300/80 leading-relaxed font-normal mb-8">
+              <p className="max-w-xl text-lg sm:text-xl text-slate-300/90 leading-relaxed font-normal mb-8">
                 Photograph a handwritten proof. MathSentry rebuilds its logic as
                 a tree, checks every dependency, and lights up the exact line
                 that doesn't hold — with a hint, never the answer.
@@ -217,14 +218,14 @@ export default function App() {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-10">
                 <a
                   href="/app"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-base font-semibold bg-primary text-white shadow-indigo hover:bg-indigo-500 hover:shadow-indigo-lg transition-all active:scale-[0.98]"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-base font-semibold bg-primary text-white shadow-indigo hover:opacity-95 hover:shadow-indigo-lg transition-all active:scale-[0.98]"
                 >
                   <span>Analyze a proof free</span>
                   <ArrowRight size={18} />
                 </a>
                 <a
                   href="#how"
-                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-medium text-slate-300 border border-slate-700 hover:border-slate-500 hover:text-white hover:bg-white/5 transition-all"
+                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full text-base font-medium text-slate-200 border border-slate-600 hover:border-slate-400 hover:text-white hover:bg-white/5 transition-all"
                 >
                   See how it works
                 </a>
@@ -242,7 +243,7 @@ export default function App() {
                     />
                   ))}
                 </div>
-                <span className="text-sm font-medium text-slate-400">
+                <span className="text-sm font-medium text-slate-300">
                   Loved by students in 40+ universities
                 </span>
               </div>
@@ -252,7 +253,7 @@ export default function App() {
             <div className="lg:col-span-5 relative flex justify-center">
               <div className="w-full max-w-md animate-floaty relative">
                 {/* Main Card Container */}
-                <div className="relative bg-white text-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-indigo overflow-hidden">
+                <div className="relative bg-white text-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-indigo overflow-hidden">
                   {/* Vertical Scanline Beam Overlay */}
                   <div
                     className="absolute left-0 right-0 h-16 scanline-bar pointer-events-none animate-scanline z-10 opacity-70"
@@ -281,7 +282,7 @@ export default function App() {
                   <div className="space-y-3 font-math text-base sm:text-lg">
                     {/* Line 1 */}
                     <div className="flex items-start gap-3 p-2.5 rounded-xl bg-success-soft/60 border border-emerald-100/80 transition-all">
-                      <div className="h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="h-5 w-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
                         <Check size={12} strokeWidth={3} />
                       </div>
                       <div className="text-slate-800 leading-snug">
@@ -295,7 +296,7 @@ export default function App() {
 
                     {/* Line 2 */}
                     <div className="flex items-start gap-3 p-2.5 rounded-xl bg-success-soft/60 border border-emerald-100/80 transition-all">
-                      <div className="h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="h-5 w-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
                         <Check size={12} strokeWidth={3} />
                       </div>
                       <div className="text-slate-800 leading-snug">
@@ -321,7 +322,7 @@ export default function App() {
                       <div
                         className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                           interactiveStepFixed
-                            ? 'bg-emerald-500 text-white'
+                            ? 'bg-emerald-600 text-white'
                             : 'bg-flaw text-white'
                         }`}
                       >
@@ -408,12 +409,12 @@ export default function App() {
                 </div>
 
                 {/* Floating Badge at bottom-left */}
-                <div className="absolute -bottom-4 -left-4 sm:-bottom-5 sm:-left-6 bg-[#0B1120] text-white px-4 py-2.5 rounded-2xl border border-slate-700/80 shadow-xl flex items-center gap-2.5 z-20">
+                <div className="absolute -bottom-4 -left-4 sm:-bottom-5 sm:-left-6 bg-slate-deep text-white px-4 py-2.5 rounded-2xl border border-slate-600/80 shadow-xl flex items-center gap-2.5 z-20">
                   <div className="h-7 w-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <Zap size={16} fill="currentColor" />
                   </div>
                   <div className="text-left">
-                    <div className="text-[11px] text-slate-400 font-medium">
+                    <div className="text-[11px] text-slate-300 font-medium">
                       AST Graph Traversal
                     </div>
                     <div className="text-xs font-bold text-white tracking-tight">
@@ -428,30 +429,30 @@ export default function App() {
       </section>
 
       {/* =========================================================================
-          SECTION C: MATH TOPICS MARQUEE
+          SECTION C: LIGHT / WHITE MATH TOPICS MARQUEE
          ========================================================================= */}
-      <section className="bg-[#070B14] border-y border-slate-800/80 py-4 overflow-hidden select-none">
+      <section className="bg-white border-y border-slate-200/80 py-4 overflow-hidden select-none">
         <div className="flex w-[200%] animate-marquee">
           {/* Marquee Track Set 1 */}
-          <div className="flex items-center gap-8 px-4 shrink-0 text-slate-300 font-math italic text-lg sm:text-xl tracking-wide">
+          <div className="flex items-center gap-8 px-4 shrink-0 text-slate-800 font-math italic text-lg sm:text-xl tracking-wide">
             {marqueeItems.map((topic, index) => (
               <span key={index} className="flex items-center gap-8">
                 <span className="hover:text-primary transition-colors cursor-default">
                   {topic}
                 </span>
-                <span className="text-indigo-400/60 not-italic text-sm">✦</span>
+                <span className="text-primary not-italic text-sm">✦</span>
               </span>
             ))}
           </div>
 
           {/* Marquee Track Set 2 (Seamless loop duplicate) */}
-          <div className="flex items-center gap-8 px-4 shrink-0 text-slate-300 font-math italic text-lg sm:text-xl tracking-wide">
+          <div className="flex items-center gap-8 px-4 shrink-0 text-slate-800 font-math italic text-lg sm:text-xl tracking-wide">
             {marqueeItems.map((topic, index) => (
               <span key={`dup-${index}`} className="flex items-center gap-8">
                 <span className="hover:text-primary transition-colors cursor-default">
                   {topic}
                 </span>
-                <span className="text-indigo-400/60 not-italic text-sm">✦</span>
+                <span className="text-primary not-italic text-sm">✦</span>
               </span>
             ))}
           </div>
@@ -459,81 +460,70 @@ export default function App() {
       </section>
 
       {/* =========================================================================
-          SECTION D: HOW IT WORKS ("Snap → Map → Verify")
+          SECTION D: HOW IT WORKS (CLEAN & DIRECT)
          ========================================================================= */}
       <section id="how" className="py-24 sm:py-32 bg-canvas">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          {/* Section Header */}
-          <div className="text-center max-w-2xl mx-auto mb-16 sm:mb-20">
-            <span className="font-mono text-xs font-bold uppercase tracking-widest text-primary block mb-3">
-              HOW IT WORKS
-            </span>
-            <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900 leading-tight">
-              From notebook to{' '}
-              <span className="font-math italic text-primary">verdict</span> in
-              seconds
-            </h2>
-            <p className="mt-4 text-slate-600 text-base sm:text-lg">
-              Designed around formal mathematical rigor, not generative guessing.
-            </p>
-          </div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          {/* Title directly */}
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900 leading-tight text-center mb-20 sm:mb-24">
+            From notebook to{' '}
+            <span className="font-math italic text-primary">verdict</span> in
+            seconds
+          </h2>
 
-          {/* 3 Connected Step Cards */}
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Connecting gradient horizontal line for desktop */}
+          {/* 3 Icons connected with thin line and short descriptions */}
+          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8 max-w-4xl mx-auto">
+            {/* Connecting thin line for desktop */}
             <div
-              className="hidden md:block absolute top-1/2 left-12 right-12 h-0.5 -translate-y-8 bg-gradient-to-r from-indigo-200 via-indigo-500 to-emerald-300 z-0"
+              className="hidden md:block absolute top-7 left-24 right-24 h-px bg-slate-200 z-0"
               aria-hidden="true"
             />
 
-            {/* Card 01: Snap */}
-            <div className="relative z-10 bg-white rounded-3xl p-8 border border-border-soft shadow-sm hover:shadow-md transition-all flex flex-col items-start group">
-              <div className="h-14 w-14 rounded-2xl bg-indigo-50 text-primary flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Camera size={26} strokeWidth={2.2} />
+            {/* 01 Snap */}
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-primary flex items-center justify-center mb-5 shadow-sm">
+                <Camera size={24} strokeWidth={2} />
               </div>
-              <span className="font-mono text-xs font-bold text-slate-400 tracking-wider mb-2">
-                01 SNAP
+              <span className="font-mono text-xs font-bold text-slate-400 mb-1">
+                01
               </span>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">
-                Photograph any page
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                Snap
               </h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Messy handwriting welcome. Cross-outs, scratch lines, and
-                margins are parsed cleanly by our mathematical OCR model.
+              <p className="text-slate-600 text-sm max-w-xs leading-relaxed">
+                Photograph any page — messy handwriting welcome.
               </p>
             </div>
 
-            {/* Card 02: Map */}
-            <div className="relative z-10 bg-white rounded-3xl p-8 border border-border-soft shadow-sm hover:shadow-md transition-all flex flex-col items-start group">
-              <div className="h-14 w-14 rounded-2xl bg-amber-50 text-warning flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <GitBranch size={26} strokeWidth={2.2} />
+            {/* 02 Map */}
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-2xl bg-amber-50 border border-amber-100 text-warning flex items-center justify-center mb-5 shadow-sm">
+                <GitBranch size={24} strokeWidth={2} />
               </div>
-              <span className="font-mono text-xs font-bold text-slate-400 tracking-wider mb-2">
-                02 MAP
+              <span className="font-mono text-xs font-bold text-slate-400 mb-1">
+                02
               </span>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">
-                Reconstruct the logic tree
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                Map
               </h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Each line becomes a node linked to what it relies on. Hidden
-                lemmas and dependencies are mapped into a formal AST.
+              <p className="text-slate-600 text-sm max-w-xs leading-relaxed">
+                Each line becomes a node linked to what it relies on.
               </p>
             </div>
 
-            {/* Card 03: Verify */}
-            <div className="relative z-10 bg-white rounded-3xl p-8 border border-border-soft shadow-sm hover:shadow-md transition-all flex flex-col items-start group">
-              <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-success flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <ShieldCheck size={26} strokeWidth={2.2} />
+            {/* 03 Verify */}
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-100 text-success flex items-center justify-center mb-5 shadow-sm">
+                <ShieldCheck size={24} strokeWidth={2} />
               </div>
-              <span className="font-mono text-xs font-bold text-slate-400 tracking-wider mb-2">
-                03 VERIFY
+              <span className="font-mono text-xs font-bold text-slate-400 mb-1">
+                03
               </span>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">
-                Pinpoint the exact gap
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                Verify
               </h3>
-              <p className="text-slate-600 text-sm leading-relaxed">
-                Every single link is verified. The weak one turns red with a
-                guiding hint — preserving the joy of finding the solution.
+              <p className="text-slate-600 text-sm max-w-xs leading-relaxed">
+                Every link is checked. The weak one turns red.
               </p>
             </div>
           </div>
@@ -541,32 +531,24 @@ export default function App() {
       </section>
 
       {/* =========================================================================
-          SECTION E: BENTO GRID FEATURES
+          SECTION E: FEATURES (LIGHT SECTION, DARKER LOGIC TREE, SIMPLIFIED CARDS)
          ========================================================================= */}
-      <section id="features" className="py-24 sm:py-32 bg-[#090E1A] text-white">
+      <section id="features" className="py-24 sm:py-32 bg-slate-50 border-t border-border-soft text-slate-900">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          {/* Bento Header */}
+          {/* Section Header */}
           <div className="max-w-2xl mb-16">
-            <span className="font-mono text-xs font-bold uppercase tracking-widest text-indigo-400 block mb-3">
-              PROOF INTELLIGENCE
+            <span className="font-mono text-xs font-bold uppercase tracking-widest text-primary block mb-3">
+              FEATURES
             </span>
-            <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-white leading-tight">
-              Built specifically for{' '}
-              <span className="font-math italic text-gradient">
-                formal mathematicians
-              </span>
+            <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900 leading-tight">
+              Everything a proof needs. Nothing it doesn't.
             </h2>
-            <p className="mt-4 text-slate-400 text-base sm:text-lg">
-              Generic LLMs guess the answer. MathSentry proves whether your
-              solution actually holds.
-            </p>
           </div>
 
           {/* 3-Column Bento Grid Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Large Bento Card (col-span-2 row-span-2) */}
-            <div className="lg:col-span-2 lg:row-span-2 bg-[#0B1120] rounded-3xl p-8 sm:p-10 border border-slate-800 bg-grid relative overflow-hidden flex flex-col justify-between">
-              {/* Card Header */}
+            {/* Large Bento Card: The Logic Tree (Darker card with math grid) */}
+            <div className="lg:col-span-2 lg:row-span-2 bg-slate-deep text-white rounded-3xl p-8 sm:p-10 border border-slate-700/80 bg-grid relative overflow-hidden flex flex-col justify-between shadow-sm">
               <div>
                 <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-6 border border-amber-500/20">
                   <GitBranch size={24} strokeWidth={2.2} />
@@ -576,13 +558,12 @@ export default function App() {
                 </h3>
                 <p className="text-slate-300 text-base max-w-lg mb-8 leading-relaxed">
                   See your argument the way a professor does: every claim, every
-                  dependency, every hidden assumption laid bare in an acyclic
-                  directed graph.
+                  dependency, every hidden assumption.
                 </p>
               </div>
 
               {/* Visual Logic Tree Diagram */}
-              <div className="bg-[#050811] rounded-2xl p-6 sm:p-8 border border-slate-800/80 font-mono text-xs sm:text-sm">
+              <div className="bg-[#121826] rounded-2xl p-6 sm:p-8 border border-slate-700/60 font-mono text-xs sm:text-sm">
                 <div className="flex flex-col items-center">
                   {/* Node 1: Hypothesis */}
                   <div className="px-5 py-2 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 shadow-sm">
@@ -609,7 +590,7 @@ export default function App() {
                   <div className="px-5 py-2.5 rounded-xl bg-red-950/60 text-red-300 border border-red-500/80 flex items-center gap-2.5 animate-pulse-ring">
                     <AlertTriangle size={16} className="text-flaw" />
                     <span className="font-semibold">
-                      [Step 3 — missing x &gt; −1 sign check]
+                      [Step 3 — missing x &gt; −1]
                     </span>
                   </div>
 
@@ -618,50 +599,39 @@ export default function App() {
 
                   {/* Node 5: Dimmed Conclusion */}
                   <div className="px-5 py-2 rounded-xl bg-slate-900/40 text-slate-500 border border-dashed border-slate-800">
-                    [Conclusion: Cascades to 0 pts]
+                    [Conclusion]
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Feature Card 2: Hints, not handouts */}
-            <div className="bg-[#0B1120] rounded-3xl p-8 border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-colors">
+            {/* Feature Card 2: Hints, not handouts (Simplified, <= 9 words description) */}
+            <div className="bg-white rounded-3xl p-8 border border-border-soft flex flex-col justify-between shadow-sm hover:border-slate-300 transition-colors">
               <div>
-                <div className="h-12 w-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-6 border border-indigo-500/20">
+                <div className="h-12 w-12 rounded-xl bg-indigo-50 text-primary flex items-center justify-center mb-6 border border-indigo-100">
                   <Brain size={24} strokeWidth={2.2} />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">
                   Hints, not handouts
                 </h3>
-                <p className="text-slate-300 text-sm leading-relaxed">
-                  Socratic nudges that make you find the fix yourself. Learn the
-                  missing premise rather than copying a generated answer.
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Socratic nudges that help you find the fix yourself.
                 </p>
-              </div>
-              <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center gap-2 text-xs font-mono text-indigo-400">
-                <span>Adaptive pedagogic scoring</span>
-                <span>→</span>
               </div>
             </div>
 
-            {/* Feature Card 3: Typst export */}
-            <div className="bg-[#0B1120] rounded-3xl p-8 border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-colors">
+            {/* Feature Card 3: Typst export (Simplified, <= 9 words description) */}
+            <div className="bg-white rounded-3xl p-8 border border-border-soft flex flex-col justify-between shadow-sm hover:border-slate-300 transition-colors">
               <div>
-                <div className="h-12 w-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-6 border border-indigo-500/20">
+                <div className="h-12 w-12 rounded-xl bg-indigo-50 text-primary flex items-center justify-center mb-6 border border-indigo-100">
                   <FileCode2 size={24} strokeWidth={2.2} />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">
                   Typst export
                 </h3>
-                <p className="text-slate-300 text-sm leading-relaxed">
-                  One tap from verified handwritten proof to a gorgeous,
-                  publication-grade typeset PDF powered by the modern Typst
-                  engine.
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  One tap from handwritten proof to typeset PDF.
                 </p>
-              </div>
-              <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center gap-2 text-xs font-mono text-indigo-400">
-                <span>Instant SVG & PDF compiler</span>
-                <span>→</span>
               </div>
             </div>
           </div>
@@ -669,23 +639,17 @@ export default function App() {
       </section>
 
       {/* =========================================================================
-          SECTION F: COMPARISON TABLE ("MathSentry vs AI Chatbots")
+          SECTION F: COMPARISON ("Why MathSentry — Answer bots make you lazy. We make you sharp.")
          ========================================================================= */}
       <section id="comparison" className="py-24 sm:py-32 bg-canvas">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="font-mono text-xs font-bold uppercase tracking-widest text-primary block mb-3">
-              THE DIFFERENCE
+              WHY MATHSENTRY
             </span>
             <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900 leading-tight">
-              MathSentry vs{' '}
-              <span className="font-math italic text-slate-600">
-                General AI Chatbots
-              </span>
+              Answer bots make you lazy. We make you sharp.
             </h2>
-            <p className="mt-4 text-slate-600 text-base">
-              Why standard LLMs hallucinate proofs while MathSentry verifies them.
-            </p>
           </div>
 
           {/* 3-Column Comparison Table Card */}
@@ -697,7 +661,7 @@ export default function App() {
                     <th className="py-5 px-6 font-semibold text-sm text-slate-700 w-1/2">
                       Capability
                     </th>
-                    <th className="py-5 px-6 font-semibold text-sm text-indigo-600 text-center bg-indigo-50/50 w-1/4">
+                    <th className="py-5 px-6 font-semibold text-sm text-primary text-center bg-indigo-50/50 w-1/4">
                       MathSentry
                     </th>
                     <th className="py-5 px-6 font-semibold text-sm text-slate-500 text-center w-1/4">
@@ -800,7 +764,7 @@ export default function App() {
       {/* =========================================================================
           SECTION G: LIVE STATS BANNER
          ========================================================================= */}
-      <section className="bg-slate-deep py-16 sm:py-20 border-y border-slate-800 text-white relative overflow-hidden">
+      <section className="bg-slate-deep py-16 sm:py-20 border-y border-slate-700/80 text-white relative overflow-hidden">
         <div
           className="glow-orb absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] opacity-40 pointer-events-none"
           aria-hidden="true"
@@ -813,7 +777,7 @@ export default function App() {
               <span className="font-math text-4xl sm:text-6xl font-semibold text-gradient mb-2 tracking-tight">
                 12k+
               </span>
-              <span className="text-sm font-medium text-slate-400">
+              <span className="text-sm font-medium text-slate-300">
                 proofs analyzed
               </span>
             </div>
@@ -823,7 +787,7 @@ export default function App() {
               <span className="font-math text-4xl sm:text-6xl font-semibold text-gradient mb-2 tracking-tight">
                 94%
               </span>
-              <span className="text-sm font-medium text-slate-400">
+              <span className="text-sm font-medium text-slate-300">
                 flaws caught on first scan
               </span>
             </div>
@@ -833,7 +797,7 @@ export default function App() {
               <span className="font-math text-4xl sm:text-6xl font-semibold text-gradient mb-2 tracking-tight">
                 2.4s
               </span>
-              <span className="text-sm font-medium text-slate-400">
+              <span className="text-sm font-medium text-slate-300">
                 average analysis
               </span>
             </div>
@@ -843,7 +807,7 @@ export default function App() {
               <span className="font-math text-4xl sm:text-6xl font-semibold text-gradient mb-2 tracking-tight">
                 4.9★
               </span>
-              <span className="text-sm font-medium text-slate-400">
+              <span className="text-sm font-medium text-slate-300">
                 student rating
               </span>
             </div>
@@ -893,7 +857,7 @@ export default function App() {
                   </strong>
                   <span className="text-slate-500 text-xs">Math, Year 2</span>
                 </div>
-                <span className="font-mono text-xs text-indigo-500 font-medium">
+                <span className="font-mono text-xs text-primary font-medium">
                   Verified Student
                 </span>
               </div>
@@ -924,7 +888,7 @@ export default function App() {
                   </strong>
                   <span className="text-slate-500 text-xs">CS, Year 1</span>
                 </div>
-                <span className="font-mono text-xs text-indigo-500 font-medium">
+                <span className="font-mono text-xs text-primary font-medium">
                   Verified Student
                 </span>
               </div>
@@ -955,7 +919,7 @@ export default function App() {
                   </strong>
                   <span className="text-slate-500 text-xs">Lecturer</span>
                 </div>
-                <span className="font-mono text-xs text-indigo-500 font-medium">
+                <span className="font-mono text-xs text-primary font-medium">
                   Faculty Member
                 </span>
               </div>
@@ -965,27 +929,24 @@ export default function App() {
       </section>
 
       {/* =========================================================================
-          SECTION I: PRICING SECTION
+          SECTION I: PRICING ("Cheaper than one retake.")
          ========================================================================= */}
       <section id="pricing" className="py-24 sm:py-32 bg-slate-50 border-t border-border-soft">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           {/* Header */}
           <div className="text-center max-w-2xl mx-auto mb-16 sm:mb-20">
             <span className="font-mono text-xs font-bold uppercase tracking-widest text-primary block mb-3">
-              SIMPLE PRICING
+              PRICING
             </span>
             <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900 leading-tight">
-              Invest in your mathematical intuition
+              Cheaper than one retake.
             </h2>
-            <p className="mt-4 text-slate-600 text-base">
-              Try for free. Upgrade when you need unlimited proof iterations.
-            </p>
           </div>
 
           {/* 3 Tiered Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
             {/* Plan 1: Free */}
-            <div className="bg-white rounded-3xl p-8 border border-border-soft flex flex-col justify-between">
+            <div className="bg-white rounded-3xl p-8 border border-border-soft flex flex-col justify-between shadow-sm">
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-slate-900">Free</h3>
@@ -1059,14 +1020,14 @@ export default function App() {
               </div>
               <a
                 href="/app"
-                className="w-full text-center py-3.5 rounded-full bg-primary text-white font-semibold hover:bg-indigo-500 shadow-indigo transition-all active:scale-[0.98]"
+                className="w-full text-center py-3.5 rounded-full bg-primary text-white font-semibold hover:opacity-95 shadow-indigo transition-all active:scale-[0.98]"
               >
                 Start free trial
               </a>
             </div>
 
             {/* Plan 3: Classroom */}
-            <div className="bg-white rounded-3xl p-8 border border-border-soft flex flex-col justify-between">
+            <div className="bg-white rounded-3xl p-8 border border-border-soft flex flex-col justify-between shadow-sm">
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-slate-900">Classroom</h3>
@@ -1215,12 +1176,12 @@ export default function App() {
       </section>
 
       {/* =========================================================================
-          SECTION K: FINAL CTA & FOOTER
+          SECTION K: FINAL CTA CARD (LIGHTER SLATE + MATH SQUARE GRID) & FOOTER
          ========================================================================= */}
       <section className="py-20 sm:py-28 bg-canvas">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          {/* Rounded 2.5rem card in deep slate with centered glow orb */}
-          <div className="relative rounded-[2.5rem] bg-slate-deep text-white px-8 py-16 sm:px-16 sm:py-24 text-center overflow-hidden border border-slate-800 shadow-2xl">
+          {/* Rounded 2.5rem card in lighter slateDeep with math grid background */}
+          <div className="relative rounded-[2.5rem] bg-slate-deep text-white px-8 py-16 sm:px-16 sm:py-24 text-center overflow-hidden border border-slate-700/80 shadow-2xl bg-grid">
             {/* Centered Glow Orb */}
             <div
               className="glow-orb absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] pointer-events-none opacity-60"
@@ -1239,7 +1200,7 @@ export default function App() {
               </p>
               <a
                 href="/app"
-                className="inline-flex items-center justify-center gap-2 px-9 py-4 rounded-full text-base font-semibold bg-primary text-white shadow-indigo hover:bg-indigo-500 hover:shadow-indigo-lg transition-all active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 px-9 py-4 rounded-full text-base font-semibold bg-primary text-white shadow-indigo hover:opacity-95 hover:shadow-indigo-lg transition-all active:scale-[0.98]"
               >
                 <span>Start proving</span>
                 <ArrowRight size={18} />

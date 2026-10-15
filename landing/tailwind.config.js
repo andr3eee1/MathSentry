@@ -13,9 +13,10 @@ export default {
       },
       colors: {
         canvas: '#F8FAFC',
-        'slate-deep': '#0B1120',
+        'slate-deep': '#1A2234',
+        'slate-card': '#232D42',
         primary: {
-          DEFAULT: '#6366F1',
+          DEFAULT: '#5B52F2',
           foreground: '#FFFFFF',
           soft: '#EEF2FF',
         },
@@ -24,8 +25,8 @@ export default {
           soft: '#FEF2F2',
         },
         success: {
-          DEFAULT: '#10B981',
-          soft: '#ECFDF5',
+          DEFAULT: '#16A34A',
+          soft: '#DCFCE7',
         },
         warning: {
           DEFAULT: '#F59E0B',
@@ -34,8 +35,8 @@ export default {
         'border-soft': '#E2E8F0',
       },
       boxShadow: {
-        'indigo': '0 18px 40px -12px rgba(99, 102, 241, 0.35)',
-        'indigo-lg': '0 24px 60px -12px rgba(99, 102, 241, 0.45)',
+        'indigo': '0 18px 40px -12px rgba(91, 82, 242, 0.35)',
+        'indigo-lg': '0 24px 60px -12px rgba(91, 82, 242, 0.45)',
       },
       keyframes: {
         scanline: {
