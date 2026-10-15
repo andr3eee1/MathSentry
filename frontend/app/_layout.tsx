@@ -24,6 +24,7 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 import { C } from '@/theme';
 import { AuthProvider } from '@/context/AuthContext';
+import { Toaster } from 'burnt/web';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -61,6 +62,7 @@ export default function RootLayout() {
           <StatusBar style="light" />
           <AuthProvider>
             <Slot />
+            <Toaster position="top-center" />
           </AuthProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>
