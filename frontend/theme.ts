@@ -16,11 +16,28 @@ export const C = {
   warnSoft: '#FFFBEB',
   indigoSoft: '#EEF2FF',
 };
+
 export const F = {
-  ui: 'Inter_400Regular', uiMed: 'Inter_500Medium', uiSemi: 'Inter_600SemiBold', uiBold: 'Inter_700Bold',
-  math: 'Newsreader_400Regular', mathItalic: 'Newsreader_400Regular_Italic', mathMed: 'Newsreader_500Medium',
+  ui: 'Inter_400Regular',
+  uiMed: 'Inter_500Medium',
+  uiSemi: 'Inter_600SemiBold',
+  uiBold: 'Inter_700Bold',
+  math: 'Newsreader_400Regular',
+  mathItalic: 'Newsreader_400Regular_Italic',
+  mathMed: 'Newsreader_500Medium',
   mono: 'JetBrainsMono_400Regular',
 };
+
 export const indigoShadow = { // iOS + Android
-  shadowColor: '#4F46E5', shadowOpacity: 0.45, shadowRadius: 20, shadowOffset: { width: 0, height: 18 }, elevation: 14,
+  shadowColor: '#4F46E5',
+  shadowOpacity: 0.45,
+  shadowRadius: 20,
+  shadowOffset: { width: 0, height: 18 },
+  elevation: 14,
+};
+
+export const SPRING_CONFIG = {
+  stiffness: 380,
+  damping: 30,
+  mass: 1,
 };
