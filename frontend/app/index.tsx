@@ -49,7 +49,6 @@ import { ScanOverlay } from '@/components/ScanOverlay';
 import { showToast } from '@/components/ToastHelper';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
-import { Toaster } from 'burnt/web';
 
 interface MainAnalysisScreenProps {
   onLogout?: () => void;
@@ -273,7 +272,6 @@ export default function AnalysisScreen() {
           <StatusBar style="light" />
           <AuthProvider>
             <RootAppContent />
-            <Toaster position="top-center" />
           </AuthProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>

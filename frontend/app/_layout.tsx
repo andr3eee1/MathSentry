@@ -62,7 +62,13 @@ export default function RootLayout() {
           <StatusBar style="light" />
           <AuthProvider>
             <Slot />
-            <Toaster position="top-center" />
+            <Toaster
+              position="top-center"
+              expand={true}
+              gap={12}
+              visibleToasts={4}
+              offset={16}
+            />
           </AuthProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>
