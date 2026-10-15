@@ -44,12 +44,17 @@ import { TheoremSheet } from '@/components/sheets/TheoremSheet';
 import { HistorySheet } from '@/components/sheets/HistorySheet';
 import { ProfileSheet } from '@/components/sheets/ProfileSheet';
 import { AuthSheet } from '@/components/sheets/AuthSheet';
+import { AuthScreen } from '@/components/AuthScreen';
 import { ScanOverlay } from '@/components/ScanOverlay';
 import { showToast } from '@/components/ToastHelper';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
 
-function MainAnalysisScreen() {
+interface MainAnalysisScreenProps {
+  onLogout?: () => void;
+}
+
+function MainAnalysisScreen({ onLogout }: MainAnalysisScreenProps) {
   const insets = useSafeAreaInsets();
 
   // State model
@@ -158,7 +163,7 @@ function MainAnalysisScreen() {
       {/* 1. Header (dark, includes safe-area top inset) */}
       <Header
         onOpenTypst={() => typstSheetRef.current?.present()}
-        onBack={() => {}}
+        onBack={() => onLogout?.()}
       />
 
       {/* 2. Pipeline strip */}
@@ -221,6 +226,24 @@ function MainAnalysisScreen() {
   );
 }
 
+function RootAppContent() {
+  const { user, isGuest, isLoading, logout } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={C.primary} />
+      </View>
+    );
+  }
+
+  if (!user && !isGuest) {
+    return <AuthScreen />;
+  }
+
+  return <MainAnalysisScreen onLogout={logout} />;
+}
+
 export default function AnalysisScreen() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -248,7 +271,7 @@ export default function AnalysisScreen() {
         <BottomSheetModalProvider>
           <StatusBar style="light" />
           <AuthProvider>
-            <MainAnalysisScreen />
+            <RootAppContent />
           </AuthProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>

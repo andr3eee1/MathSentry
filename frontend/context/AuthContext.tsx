@@ -13,8 +13,11 @@ interface AuthContextType {
   stats: UserStats | null;
   token: string | null;
   isLoading: boolean;
+  isGuest: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;
+  loginDemo: () => Promise<void>;
+  continueAsGuest: () => void;
   logout: () => Promise<void>;
   refreshStats: () => Promise<void>;
   isAuthModalOpen: boolean;
@@ -31,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [stats, setStats] = useState<UserStats | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   const refreshStats = useCallback(async () => {
@@ -49,31 +53,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const storedToken = await api.init();
         if (storedToken) {
           setToken(storedToken);
-          const data = await api.getMe();
-          setUser(data.user);
-          setStats(data.stats);
-        } else {
-          // Check cached user
-          const cachedUserJson = await AsyncStorage.getItem('@mathsentry_user');
-          if (cachedUserJson) {
-            setUser(JSON.parse(cachedUserJson));
+          try {
+            const data = await api.getMe();
+            setUser(data.user);
+            setStats(data.stats);
+          } catch {
+            const cachedUserJson = await AsyncStorage.getItem('@mathsentry_user');
+            if (cachedUserJson) {
+              setUser(JSON.parse(cachedUserJson));
+            }
           }
         }
       } catch {
-        // Fallback demo user
-        setUser({
-          id: 'user_demo_01',
-          email: 'olimpic@mathsentry.ro',
-          username: 'Andrei Popescu',
-          rank: 'Olympiad Candidate',
-          streak: 7,
-        });
-        setStats({
-          totalProofs: 24,
-          soundPercentage: 81,
-          streak: 7,
-          rank: 'Olympiad Candidate',
-        });
+        // Leave unauthenticated so user starts on Login screen
       } finally {
         setIsLoading(false);
       }
@@ -87,11 +79,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const res = await api.login(email, password);
       setToken(res.token);
       setUser(res.user);
+      setIsGuest(false);
       await refreshStats();
       setIsAuthModalOpen(false);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loginDemo = async () => {
+    await login('olimpic@mathsentry.ro', 'olimpiada2026');
+  };
+
+  const continueAsGuest = () => {
+    setIsGuest(true);
+    setUser({
+      id: 'guest_user',
+      email: 'oaspete@mathsentry.ro',
+      username: 'Oaspete Olimpic',
+      rank: 'Olympiad Explorer',
+      streak: 1,
+    });
+    setStats({
+      totalProofs: 12,
+      soundPercentage: 75,
+      streak: 1,
+      rank: 'Olympiad Explorer',
+    });
   };
 
   const register = async (email: string, password: string, username: string) => {
@@ -100,6 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const res = await api.register(email, password, username);
       setToken(res.token);
       setUser(res.user);
+      setIsGuest(false);
       await refreshStats();
       setIsAuthModalOpen(false);
     } finally {
@@ -112,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setToken(null);
     setUser(null);
     setStats(null);
+    setIsGuest(false);
   };
 
   return (
@@ -121,8 +137,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         stats,
         token,
         isLoading,
+        isGuest,
         login,
         register,
+        loginDemo,
+        continueAsGuest,
         logout,
         refreshStats,
         isAuthModalOpen,

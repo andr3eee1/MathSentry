@@ -134,7 +134,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
           pointerEvents="none"
         >
           <LinearGradient
-            colors={['transparent', 'rgba(79,70,229,0.2)', 'transparent']}
+            colors={['transparent', 'rgba(91,82,242,0.25)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={styles.scanningBeam}

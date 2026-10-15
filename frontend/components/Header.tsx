@@ -41,8 +41,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenTypst, onBack }) => {
           styles.typstButton,
           {
             backgroundColor: pressed
-              ? 'rgba(79,70,229,0.30)'
-              : 'rgba(79,70,229,0.15)',
+              ? 'rgba(91,82,242,0.30)'
+              : 'rgba(91,82,242,0.18)',
           },
         ]}
       >
