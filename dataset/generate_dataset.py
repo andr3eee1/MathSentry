@@ -964,7 +964,8 @@ def generate_sft_samples(problems):
     return sft_data
 
 def main():
-    base_dir = "/home/andrei/MathSentry/dataset"
+    # Dynamically resolve dataset folder to work universally in Google Colab, Linux, macOS, or Cloud
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(base_dir, exist_ok=True)
 
     # 1. Save master JSON
