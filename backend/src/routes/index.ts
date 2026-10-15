@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { scan, inspect, hint, feedback, health } from '../controllers';
+import { analyzeProof } from '../controllers/analysis';
+
 const router = Router();
-router.get('/', health);
-router.post('/scan', scan);
-router.get('/inspect/:id', inspect);
-router.get('/hint/:stepId', hint);
-router.post('/feedback', feedback);
+
+router.post('/analyze', analyzeProof);
+router.post('/re-analyze', analyzeProof);
+
 export default router;
