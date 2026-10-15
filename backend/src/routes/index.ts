@@ -1,9 +1,29 @@
 import { Router } from 'express';
-import { analyzeProof } from '../controllers/analysis';
+import { register, login, getMe } from '../controllers/auth';
+import {
+  analyzeProof,
+  getHistory,
+  getProofById,
+  scanProof,
+} from '../controllers/analysis';
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 
 const router = Router();
 
-router.post('/analyze', analyzeProof);
-router.post('/re-analyze', analyzeProof);
+// Auth routes
+router.post('/auth/register', register);
+router.post('/auth/login', login);
+router.get('/auth/me', authMiddleware, getMe);
+
+// Proof & Olympiad Analysis routes
+router.post('/proof/analyze', optionalAuthMiddleware, analyzeProof);
+router.post('/proof/re-analyze', optionalAuthMiddleware, analyzeProof);
+router.get('/proof/history', optionalAuthMiddleware, getHistory);
+router.get('/proof/:id', optionalAuthMiddleware, getProofById);
+router.post('/proof/scan', optionalAuthMiddleware, scanProof);
+
+// Backward-compatible root aliases
+router.post('/analyze', optionalAuthMiddleware, analyzeProof);
+router.post('/re-analyze', optionalAuthMiddleware, analyzeProof);
 
 export default router;

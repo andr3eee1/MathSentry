@@ -1,5 +1,5 @@
-import React, { forwardRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { forwardRef, useCallback, useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetBackdrop,
@@ -8,48 +8,71 @@ import {
 } from '@gorhom/bottom-sheet';
 import { Check, AlertTriangle, X } from 'lucide-react-native';
 import { C, F } from '@/theme';
+import { api, HistoryItem } from '@/services/api';
 
 interface HistorySheetProps {
   onClose?: () => void;
+  onSelectProof?: (id: string) => void;
 }
 
-interface HistoryItem {
-  id: string;
-  title: string;
-  date: string;
-  status: 'ok' | 'flaw';
-}
-
-const HISTORY_DATA: HistoryItem[] = [
+const DEFAULT_HISTORY: HistoryItem[] = [
   {
-    id: '1',
+    id: 'analysis_imo_01',
     title: 'IMO 2001 P2 — AM-GM chain',
     date: '2 days ago',
     status: 'ok',
+    scorePercentage: 100,
+    onmScore: 7.0,
   },
   {
-    id: '2',
+    id: 'analysis_cauchy_01',
     title: 'Cauchy–Schwarz lemma (USAMO)',
     date: '5 days ago',
     status: 'flaw',
+    scorePercentage: 40,
+    onmScore: 2.8,
   },
   {
-    id: '3',
+    id: 'analysis_dirichlet_01',
     title: 'Pigeonhole on residues mod 7',
     date: '1 week ago',
     status: 'ok',
+    scorePercentage: 100,
+    onmScore: 7.0,
   },
   {
-    id: '4',
+    id: 'analysis_bernoulli_01',
     title: 'Bernoulli via induction',
     date: 'Today',
     status: 'flaw',
+    scorePercentage: 40,
+    onmScore: 2.8,
   },
 ];
 
 export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
-  ({ onClose }, ref) => {
+  ({ onClose, onSelectProof }, ref) => {
     const snapPoints = useMemo(() => ['85%'], []);
+    const [items, setItems] = useState<HistoryItem[]>(DEFAULT_HISTORY);
+    const [loading, setLoading] = useState<boolean>(false);
+
+    const loadHistory = useCallback(async () => {
+      setLoading(true);
+      try {
+        const data = await api.getHistory();
+        if (data && data.length > 0) {
+          setItems(data);
+        }
+      } catch {
+        // Fallback to default
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
+    useEffect(() => {
+      loadHistory();
+    }, [loadHistory]);
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -64,6 +87,12 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
       []
     );
 
+    const handleRowPress = (id: string) => {
+      onSelectProof?.(id);
+      (ref as any)?.current?.dismiss();
+      onClose?.();
+    };
+
     return (
       <BottomSheetModal
         ref={ref}
@@ -72,6 +101,7 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={styles.handle}
         backgroundStyle={styles.sheetBackground}
+        onAnimate={() => loadHistory()}
       >
         <BottomSheetView style={styles.container}>
           {/* Close button at top right 16 */}
@@ -88,30 +118,57 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
 
           <Text style={styles.title}>Past Analyses</Text>
 
-          {/* Rows */}
-          {HISTORY_DATA.map((item) => (
-            <View key={item.id} style={styles.row}>
-              <View
-                style={[
-                  styles.statusCircle,
-                  item.status === 'ok'
-                    ? { backgroundColor: C.successSoft }
-                    : { backgroundColor: C.flawSoft },
-                ]}
-              >
-                {item.status === 'ok' ? (
-                  <Check size={16} color={C.success} strokeWidth={2} />
-                ) : (
-                  <AlertTriangle size={16} color={C.flaw} strokeWidth={2} />
-                )}
-              </View>
-
-              <View style={styles.rowContent}>
-                <Text style={styles.rowTitle}>{item.title}</Text>
-                <Text style={styles.rowDate}>{item.date}</Text>
-              </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={C.primary} />
             </View>
-          ))}
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {items.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => handleRowPress(item.id)}
+                  style={({ pressed }) => [
+                    styles.row,
+                    pressed && { backgroundColor: C.muted },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.statusCircle,
+                      item.status === 'ok'
+                        ? { backgroundColor: C.successSoft }
+                        : { backgroundColor: C.flawSoft },
+                    ]}
+                  >
+                    {item.status === 'ok' ? (
+                      <Check size={16} color={C.success} strokeWidth={2} />
+                    ) : (
+                      <AlertTriangle size={16} color={C.flaw} strokeWidth={2} />
+                    )}
+                  </View>
+
+                  <View style={styles.rowContent}>
+                    <Text style={styles.rowTitle}>{item.title}</Text>
+                    <View style={styles.metaRow}>
+                      <Text style={styles.rowDate}>{item.date}</Text>
+                      <Text style={styles.metaDot}>·</Text>
+                      <Text
+                        style={[
+                          styles.metaScore,
+                          item.status === 'ok'
+                            ? { color: C.success }
+                            : { color: C.flaw },
+                        ]}
+                      >
+                        {item.scorePercentage}% ({item.onmScore}p)
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
         </BottomSheetView>
       </BottomSheetModal>
     );
@@ -136,6 +193,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     flex: 1,
   },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
   closeButton: {
     position: 'absolute',
     top: 16,
@@ -151,6 +212,8 @@ const styles = StyleSheet.create({
   },
   row: {
     paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     flexDirection: 'row',
@@ -172,10 +235,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: C.foreground,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
   rowDate: {
     fontFamily: F.ui,
     fontSize: 11,
     color: C.mutedFg,
-    marginTop: 2,
+  },
+  metaDot: {
+    fontFamily: F.ui,
+    fontSize: 11,
+    color: C.mutedFg,
+  },
+  metaScore: {
+    fontFamily: F.uiMed,
+    fontSize: 11,
   },
 });

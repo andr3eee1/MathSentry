@@ -20,13 +20,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { C, F, indigoShadow, SPRING_CONFIG } from '@/theme';
 import { showToast } from '@/components/ToastHelper';
+import { api } from '@/services/api';
 
 interface ScanOverlayProps {
   visible: boolean;
   onClose: () => void;
+  onScanComplete?: (data?: any) => void;
 }
 
-export const ScanOverlay: React.FC<ScanOverlayProps> = ({ visible, onClose }) => {
+export const ScanOverlay: React.FC<ScanOverlayProps> = ({
+  visible,
+  onClose,
+  onScanComplete,
+}) => {
   const insets = useSafeAreaInsets();
   const [viewfinderHeight, setViewfinderHeight] = useState<number>(400);
 
@@ -74,9 +80,16 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({ visible, onClose }) =>
     top: scanProgress.value * viewfinderHeight,
   }));
 
-  const handleShutter = () => {
-    onClose();
-    showToast('Page captured — running OCR…', 'done');
+  const handleShutter = async () => {
+    try {
+      showToast('Page captured — running OCR…', 'done');
+      const res = await api.scanProof();
+      onScanComplete?.(res);
+    } catch {
+      onScanComplete?.(null);
+    } finally {
+      onClose();
+    }
   };
 
   return (

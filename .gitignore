@@ -8,3 +8,7 @@ dataset/*.jsonl
 dataset/images/
 .expo/
 web-build/
+*.db
+*.db-wal
+*.db-shm
+backend/data/*.db*

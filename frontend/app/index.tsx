@@ -43,8 +43,11 @@ import { TypstSheet } from '@/components/sheets/TypstSheet';
 import { TheoremSheet } from '@/components/sheets/TheoremSheet';
 import { HistorySheet } from '@/components/sheets/HistorySheet';
 import { ProfileSheet } from '@/components/sheets/ProfileSheet';
+import { AuthSheet } from '@/components/sheets/AuthSheet';
 import { ScanOverlay } from '@/components/ScanOverlay';
 import { showToast } from '@/components/ToastHelper';
+import { AuthProvider } from '@/context/AuthContext';
+import { api } from '@/services/api';
 
 function MainAnalysisScreen() {
   const insets = useSafeAreaInsets();
@@ -58,6 +61,8 @@ function MainAnalysisScreen() {
 
   // Scan modal state
   const [scanOpen, setScanOpen] = useState(false);
+  // Auth modal state
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // BottomSheetModal references
   const typstSheetRef = useRef<BottomSheetModal>(null);
@@ -66,14 +71,38 @@ function MainAnalysisScreen() {
   const profileSheetRef = useRef<BottomSheetModal>(null);
 
   // Re-Analyze logic:
+  // Evaluates AST logic against backend engine (with local fallback)
   // phase → scanning, after 1200ms:
   // if fixed → phase sound, success haptic, toast "AST Logic Sound ✓";
   // else phase flaw, trigger shake, expand inspector, warning toast "Step 3 still unverified — check the condition on 1 + x."
-  const handleReAnalyze = () => {
+  const handleReAnalyze = async () => {
     if (phase === 'scanning') return;
     setPhase('scanning');
 
-    setTimeout(() => {
+    try {
+      const [backendResult] = await Promise.all([
+        api.reAnalyzeProof({ fixedCondition: fixed }).catch(() => null),
+        new Promise((resolve) => setTimeout(resolve, 1200)),
+      ]);
+
+      const isSound = backendResult ? backendResult.phase === 'sound' : fixed;
+
+      if (isSound) {
+        setPhase('sound');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast('AST Logic Sound ✓', 'done', 'success');
+      } else {
+        setPhase('flaw');
+        setShakeKey((prev) => prev + 1);
+        setInspectorOpen(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        showToast(
+          'Step 3 still unverified — check the condition on 1 + x.',
+          'error',
+          'warning'
+        );
+      }
+    } catch {
       if (fixed) {
         setPhase('sound');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -89,7 +118,32 @@ function MainAnalysisScreen() {
           'warning'
         );
       }
-    }, 1200);
+    }
+  };
+
+  const handleSelectProof = async (id: string) => {
+    try {
+      showToast('Se încarcă analiza…', 'done');
+      const data = await api.getProofById(id);
+      if (data) {
+        if (data.phase === 'sound') {
+          setPhase('sound');
+          setFixed(true);
+          setInspectorOpen(false);
+        } else {
+          setPhase('flaw');
+          setFixed(false);
+          setInspectorOpen(false);
+        }
+        showToast(
+          `Încărcat: ${data.domain || 'Analiză'} (${data.scorePercentage}%)`,
+          'done',
+          'success'
+        );
+      }
+    } catch {
+      showToast('Analiza a fost selectată.', 'done');
+    }
   };
 
   const handleReset = () => {
@@ -146,9 +200,23 @@ function MainAnalysisScreen() {
       {/* 6. Sheets / Scan overlay */}
       <TypstSheet ref={typstSheetRef} />
       <TheoremSheet ref={theoremSheetRef} />
-      <HistorySheet ref={historySheetRef} />
-      <ProfileSheet ref={profileSheetRef} />
-      <ScanOverlay visible={scanOpen} onClose={() => setScanOpen(false)} />
+      <HistorySheet
+        ref={historySheetRef}
+        onSelectProof={handleSelectProof}
+      />
+      <ProfileSheet
+        ref={profileSheetRef}
+        onOpenAuth={() => setAuthModalOpen(true)}
+      />
+      <AuthSheet
+        visible={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
+      <ScanOverlay
+        visible={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onScanComplete={() => handleReset()}
+      />
     </View>
   );
 }
@@ -179,7 +247,9 @@ export default function AnalysisScreen() {
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           <StatusBar style="light" />
-          <MainAnalysisScreen />
+          <AuthProvider>
+            <MainAnalysisScreen />
+          </AuthProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

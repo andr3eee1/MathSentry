@@ -6,16 +6,20 @@ import {
   BottomSheetBackdropProps,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
-import { Award, X } from 'lucide-react-native';
+import { Award, X, LogOut, LogIn } from 'lucide-react-native';
 import { C, F } from '@/theme';
+import { useAuth } from '@/context/AuthContext';
+import { showToast } from '@/components/ToastHelper';
 
 interface ProfileSheetProps {
   onClose?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
-  ({ onClose }, ref) => {
+  ({ onClose, onOpenAuth }, ref) => {
     const snapPoints = useMemo(() => ['85%'], []);
+    const { user, stats, logout } = useAuth();
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -29,6 +33,19 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
       ),
       []
     );
+
+    const handleLogout = async () => {
+      await logout();
+      showToast('Ai fost deconectat.', 'done');
+      (ref as any)?.current?.dismiss();
+      onClose?.();
+    };
+
+    const handleOpenAuth = () => {
+      (ref as any)?.current?.dismiss();
+      onClose?.();
+      onOpenAuth?.();
+    };
 
     return (
       <BottomSheetModal
@@ -57,24 +74,50 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
             <Award size={28} color={C.primary} strokeWidth={2} />
           </View>
 
-          <Text style={styles.candidateTitle}>Olympiad Candidate</Text>
+          <Text style={styles.candidateTitle}>
+            {user ? user.username : 'Olympiad Candidate'}
+          </Text>
+          <Text style={styles.candidateEmail}>
+            {user ? user.email : 'Autentifică-te pentru sincronizarea baremelor'}
+          </Text>
 
           {/* 3-col Grid */}
           <View style={styles.statsGrid}>
             <View style={styles.statTile}>
-              <Text style={styles.statValue}>24</Text>
+              <Text style={styles.statValue}>
+                {stats?.totalProofs ?? 24}
+              </Text>
               <Text style={styles.statLabel}>Proofs</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statValue}>81%</Text>
+              <Text style={styles.statValue}>
+                {stats?.soundPercentage ?? 81}%
+              </Text>
               <Text style={styles.statLabel}>Sound</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statValue}>7</Text>
+              <Text style={styles.statValue}>
+                {stats?.streak ?? 7}
+              </Text>
               <Text style={styles.statLabel}>Streak</Text>
             </View>
+          </View>
+
+          {/* Auth Action Button */}
+          <View style={styles.actionContainer}>
+            {user ? (
+              <Pressable onPress={handleLogout} style={styles.logoutButton}>
+                <LogOut size={16} color={C.flaw} strokeWidth={2} />
+                <Text style={styles.logoutText}>Deconectare cont</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={handleOpenAuth} style={styles.loginButton}>
+                <LogIn size={16} color="#FFFFFF" strokeWidth={2} />
+                <Text style={styles.loginText}>Autentificare / Înregistrare</Text>
+              </Pressable>
+            )}
           </View>
         </BottomSheetView>
       </BottomSheetModal>
@@ -124,6 +167,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  candidateEmail: {
+    fontFamily: F.ui,
+    fontSize: 12,
+    color: C.mutedFg,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   statsGrid: {
     marginTop: 16,
     flexDirection: 'row',
@@ -147,5 +197,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: C.mutedFg,
     marginTop: 2,
+  },
+  actionContainer: {
+    marginTop: 24,
+    width: '100%',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+    backgroundColor: C.flawSoft,
+  },
+  logoutText: {
+    fontFamily: F.uiMed,
+    fontSize: 13,
+    color: C.flaw,
+  },
+  loginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: C.primary,
+  },
+  loginText: {
+    fontFamily: F.uiSemi,
+    fontSize: 13,
+    color: '#FFFFFF',
   },
 });
