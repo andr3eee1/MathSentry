@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextProps, TextStyle, StyleSheet } from 'react-native';
+import { Text, TextProps, TextStyle, StyleSheet, Platform } from 'react-native';
 import { F, C } from '@/theme';
 
 interface MathTextProps extends TextProps {
@@ -50,8 +50,18 @@ const styles = StyleSheet.create({
     fontFamily: F.mathItalic,
   },
   sup: {
-    fontSize: 11,
-    lineHeight: 11,
-    transform: [{ translateY: -6 }],
+    fontSize: 10.5,
+    lineHeight: 12,
+    ...Platform.select({
+      web: {
+        verticalAlign: 'super' as any,
+        position: 'relative' as any,
+        top: -6,
+      },
+      default: {
+        verticalAlign: 'top',
+        transform: [{ translateY: -6 }],
+      },
+    }),
   },
 });

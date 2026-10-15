@@ -146,9 +146,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
       <View style={styles.problemBlock}>
         <Text style={styles.problemLabel}>PROBLEM</Text>
         <MathText style={styles.problemText}>
-          Prove that for all real <Var>x</Var> ≠ 0, (1 + <Var>x</Var>)
-          <Sup italic>n</Sup> ≥ 1 + <Var>n</Var>
-          <Var>x</Var> for <Var>n</Var> ∈ ℕ.
+          Prove that for all real <Var>x</Var> ≠ 0, (1 + <Var>x</Var>)<Sup italic>n</Sup> ≥ 1 + <Var>n</Var><Var>x</Var> for <Var>n</Var> ∈ ℕ.
         </MathText>
       </View>
 
@@ -163,8 +161,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
             </View>
           </View>
           <MathText style={styles.stepBody}>
-            For <Var>n</Var> = 1, (1 + <Var>x</Var>)<Sup>1</Sup> = 1 + 1(
-            <Var>x</Var>), which holds identically.
+            For <Var>n</Var> = 1, (1 + <Var>x</Var>)<Sup>1</Sup> = 1 + 1(<Var>x</Var>), which holds identically.
           </MathText>
         </View>
 
@@ -177,9 +174,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
             </View>
           </View>
           <MathText style={styles.stepBody}>
-            Assume <Var>P</Var>(<Var>k</Var>) holds for some <Var>k</Var> ∈ ℕ, so
-            (1 + <Var>x</Var>)<Sup italic>k</Sup> ≥ 1 + <Var>k</Var>
-            <Var>x</Var>.
+            Assume <Var>P</Var>(<Var>k</Var>) holds for some <Var>k</Var> ∈ ℕ, so (1 + <Var>x</Var>)<Sup italic>k</Sup> ≥ 1 + <Var>k</Var><Var>x</Var>.
           </MathText>
         </View>
 
@@ -193,14 +188,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
               </View>
             </View>
             <MathText style={styles.stepBody}>
-              Since <Var>x</Var> &gt; −1, we have 1 + <Var>x</Var> &gt; 0.
-              Multiply both sides of <Var>P</Var>(<Var>k</Var>) by (1 +{' '}
-              <Var>x</Var>): (1 + <Var>x</Var>)<Sup italic>k+1</Sup> ≥ (1 +{' '}
-              <Var>k</Var>
-              <Var>x</Var>)(1 + <Var>x</Var>) = 1 + (<Var>k</Var>+1)
-              <Var>x</Var> + <Var>k</Var>
-              <Var>x</Var>
-              <Sup>2</Sup> ≥ 1 + (<Var>k</Var>+1)<Var>x</Var>.
+              Since <Var>x</Var> &gt; −1, we have 1 + <Var>x</Var> &gt; 0. Multiply both sides of <Var>P</Var>(<Var>k</Var>) by (1 + <Var>x</Var>): (1 + <Var>x</Var>)<Sup italic>k+1</Sup> ≥ (1 + <Var>k</Var><Var>x</Var>)(1 + <Var>x</Var>) = 1 + (<Var>k</Var>+1)<Var>x</Var> + <Var>k</Var><Var>x</Var><Sup>2</Sup> ≥ 1 + (<Var>k</Var>+1)<Var>x</Var>.
             </MathText>
           </View>
         ) : (
@@ -227,13 +215,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
                     Given <Var>x</Var> &gt; −1,{' '}
                   </Text>
                 )}
-                Multiply both sides of <Var>P</Var>(<Var>k</Var>) by (1 +{' '}
-                <Var>x</Var>) to obtain (1 + <Var>x</Var>)
-                <Sup italic>k+1</Sup> ≥ (1 + <Var>k</Var>
-                <Var>x</Var>)(1 + <Var>x</Var>) = 1 + (<Var>k</Var>+1)
-                <Var>x</Var> + <Var>k</Var>
-                <Var>x</Var>
-                <Sup>2</Sup> ≥ 1 + (<Var>k</Var>+1)<Var>x</Var>.
+                Multiply both sides of <Var>P</Var>(<Var>k</Var>) by (1 + <Var>x</Var>) to obtain (1 + <Var>x</Var>)<Sup italic>k+1</Sup> ≥ (1 + <Var>k</Var><Var>x</Var>)(1 + <Var>x</Var>) = 1 + (<Var>k</Var>+1)<Var>x</Var> + <Var>k</Var><Var>x</Var><Sup>2</Sup> ≥ 1 + (<Var>k</Var>+1)<Var>x</Var>.
               </MathText>
 
               {!inspectorOpen ? (

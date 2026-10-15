@@ -66,9 +66,8 @@ export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
               For every integer <Var>n</Var> ≥ 0 and every real number{' '}
               <Text style={styles.highlightSpan}>
                 <Var>x</Var> ≥ −1
-              </Text>{' '}
-              , (1 + <Var>x</Var>)<Sup italic>n</Sup> ≥ 1 + <Var>n</Var>
-              <Var>x</Var>.
+              </Text>
+              , (1 + <Var>x</Var>)<Sup italic>n</Sup> ≥ 1 + <Var>n</Var><Var>x</Var>.
             </MathText>
           </View>
 
@@ -80,9 +79,7 @@ export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
               <Text style={styles.highlightSpan}>
                 <Var>c</Var> &gt; 0
               </Text>
-              , then <Var>a</Var>
-              <Var>c</Var> ≥ <Var>b</Var>
-              <Var>c</Var>. If <Var>c</Var> &lt; 0, the inequality reverses.
+              , then <Var>a</Var><Var>c</Var> ≥ <Var>b</Var><Var>c</Var>. If <Var>c</Var> &lt; 0, the inequality reverses.
             </MathText>
           </View>
 
