@@ -133,25 +133,45 @@ class ApiService {
     return this.request<any>(`/proof/${id}`);
   }
 
-  async analyzeProof(params: { fixedCondition?: boolean } = {}): Promise<any> {
+  async analyzeProof(params: {
+    fixedCondition?: boolean;
+    proofText?: string;
+    problemTitle?: string;
+    enunt?: string;
+    imageBase64?: string;
+    apiKey?: string;
+  } = {}): Promise<any> {
     return this.request<any>('/proof/analyze', {
       method: 'POST',
       body: JSON.stringify(params),
     });
   }
 
-  async reAnalyzeProof(params: { fixedCondition: boolean }): Promise<any> {
+  async reAnalyzeProof(params: {
+    fixedCondition: boolean;
+    proofText?: string;
+    apiKey?: string;
+  }): Promise<any> {
     return this.request<any>('/proof/re-analyze', {
       method: 'POST',
       body: JSON.stringify(params),
     });
   }
 
-  async scanProof(imageUri?: string): Promise<any> {
+  async scanProof(params: {
+    imageUri?: string;
+    imageBase64?: string;
+    mimeType?: string;
+    apiKey?: string;
+  } = {}): Promise<any> {
     return this.request<any>('/proof/scan', {
       method: 'POST',
-      body: JSON.stringify({ imageUri }),
+      body: JSON.stringify(params),
     });
+  }
+
+  async getGeminiStatus(): Promise<any> {
+    return this.request<any>('/proof/gemini-status');
   }
 }
 

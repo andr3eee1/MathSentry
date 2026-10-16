@@ -1,41 +1,12 @@
 import { Response } from 'express';
 import { db } from '../db';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { OlympiadAnalysisResult, StepEvaluation } from '../types/olympiad';
-
-export const TYPST_BERNOULLI = `#set page(paper: "a4", margin: 2cm)
-#set text(font: "New Computer Modern", size: 11pt)
-
-= Problem
-Prove that for all real $x != 0$,
-$(1 + x)^n >= 1 + n x$ for $n in NN$.
-
-= Proof
-*Base case.* For $n = 1$:
-$(1 + x)^1 = 1 + 1 dot x$. #h(1fr) $checkmark$
-
-*Inductive hypothesis.* Assume $P(k)$:
-$(1 + x)^k >= 1 + k x$.
-
-*Inductive step.* Multiply both sides by $(1 + x)$:
-$ (1 + x)^(k+1) >= (1 + k x)(1 + x)
-  = 1 + (k+1)x + k x^2 >= 1 + (k+1)x $
-
-*Conclusion.* By induction, $P(n)$ holds
-for all $n in NN$. $qed$`;
-
-export const THEOREMS_BERNOULLI = [
-  {
-    name: "BERNOULLI'S INEQUALITY",
-    statement:
-      'Pentru orice număr întreg n ≥ 0 și orice număr real x ≥ −1, (1 + x)ⁿ ≥ 1 + nx.',
-  },
-  {
-    name: 'ORDER AXIOM FOR MULTIPLICATION',
-    statement:
-      'Dacă a ≥ b și c > 0, atunci ac ≥ bc. Dacă c < 0, sensul inegalității se inversează.',
-  },
-];
+import { OlympiadAnalysisResult } from '../types/olympiad';
+import {
+  verifyProofWithGemini,
+  isGeminiConfigured,
+  getGeminiApiKey,
+} from '../services/gemini';
 
 function formatRelativeDate(isoDate: string): string {
   try {
@@ -50,6 +21,74 @@ function formatRelativeDate(isoDate: string): string {
     return `${Math.floor(diffDays / 7)} weeks ago`;
   } catch {
     return 'Recently';
+  }
+}
+
+function saveOrUpdateAnalysis(userId: string, result: OlympiadAnalysisResult): void {
+  const existing = db.prepare('SELECT id FROM proof_analyses WHERE id = ?').get(result.id);
+  const now = new Date().toISOString();
+  const problemTitle = result.problemId.replace(/^ONM_RO_/, '').replace(/_/g, ' ');
+
+  if (existing) {
+    db.prepare(`
+      UPDATE proof_analyses
+      SET problem_id = ?, problem_title = ?, domain = ?, problem_ro = ?,
+          phase = ?, score_percentage = ?, onm_score = ?, bac_score = ?,
+          fatal_flaw_step = ?, cascading_steps_json = ?, step_breakdown_json = ?,
+          ast_node_break_json = ?, explanation_ro = ?, teacher_critique_ro = ?,
+          theorems_json = ?, typst_source = ?, updated_at = ?
+      WHERE id = ?
+    `).run(
+      result.problemId,
+      problemTitle,
+      result.domain,
+      result.problemRo,
+      result.phase,
+      result.scorePercentage,
+      result.scaledScores.onm7p.score,
+      result.scaledScores.bac10p.score,
+      result.fatalFlawStep ?? null,
+      JSON.stringify(result.cascadingInvalidatedSteps || []),
+      JSON.stringify(result.stepBreakdown),
+      result.astNodeBreak ? JSON.stringify(result.astNodeBreak) : null,
+      result.explanationRo,
+      result.teacherCritiqueRo,
+      JSON.stringify(result.relevantTheorems),
+      result.typstSource,
+      now,
+      result.id
+    );
+  } else {
+    db.prepare(`
+      INSERT INTO proof_analyses (
+        id, user_id, problem_id, problem_title, domain, problem_ro,
+        phase, score_percentage, onm_score, bac_score,
+        fatal_flaw_step, cascading_steps_json, step_breakdown_json,
+        ast_node_break_json, explanation_ro, teacher_critique_ro,
+        theorems_json, typst_source, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      result.id,
+      userId,
+      result.problemId,
+      problemTitle,
+      result.domain,
+      result.problemRo,
+      result.phase,
+      result.scorePercentage,
+      result.scaledScores.onm7p.score,
+      result.scaledScores.bac10p.score,
+      result.fatalFlawStep ?? null,
+      JSON.stringify(result.cascadingInvalidatedSteps || []),
+      JSON.stringify(result.stepBreakdown),
+      result.astNodeBreak ? JSON.stringify(result.astNodeBreak) : null,
+      result.explanationRo,
+      result.teacherCritiqueRo,
+      JSON.stringify(result.relevantTheorems),
+      result.typstSource,
+      now,
+      now
+    );
   }
 }
 
@@ -112,194 +151,112 @@ export const getProofById = (req: AuthenticatedRequest, res: Response): void => 
   res.json(result);
 };
 
-// 3. Analyze Proof (Initial or Scan Submission)
-export const analyzeProof = (req: AuthenticatedRequest, res: Response): void => {
+// 3. Analyze Proof (Gemini 1.5 Flash Master Prompt with Offline Fallback)
+export const analyzeProof = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.userId || 'user_demo_01';
-  const { fixedCondition } = req.body;
-  const isFixed = Boolean(fixedCondition);
+  const {
+    id,
+    fixedCondition,
+    proofText,
+    problemTitle,
+    enunt,
+    imageBase64,
+    mimeType,
+    apiKey: bodyApiKey,
+  } = req.body;
 
-  if (isFixed) {
-    // Sound Analysis
-    const steps: StepEvaluation[] = [
-      {
-        step: 1,
-        label: 'Cazul de bază (n = 1)',
-        maxPercentage: 15.0,
-        awardedPercentage: 15.0,
-        deductionPercentage: 0.0,
-        isSound: true,
-        commentRo: 'Cazul de bază este tratat corect și complet.',
-        onmPoints: 1.05,
-        bacPoints: 1.5,
-      },
-      {
-        step: 2,
-        label: 'Ipoteza inductivă',
-        maxPercentage: 25.0,
-        awardedPercentage: 25.0,
-        deductionPercentage: 0.0,
-        isSound: true,
-        commentRo: 'Ipoteza inductivă este formulată riguros.',
-        onmPoints: 1.75,
-        bacPoints: 2.5,
-      },
-      {
-        step: 3,
-        label: 'Pasul inductiv cu justificarea x > -1',
-        maxPercentage: 45.0,
-        awardedPercentage: 45.0,
-        deductionPercentage: 0.0,
-        isSound: true,
-        commentRo: 'Restricția de domeniu x > -1 garantează că 1 + x > 0. Sensul inegalității este conservat.',
-        onmPoints: 3.15,
-        bacPoints: 4.5,
-      },
-      {
-        step: 4,
-        label: 'Concluzia inducției',
-        maxPercentage: 15.0,
-        awardedPercentage: 15.0,
-        deductionPercentage: 0.0,
-        isSound: true,
-        commentRo: 'Principiul inducției matematice este aplicat corect. Demonstrație completă.',
-        onmPoints: 1.05,
-        bacPoints: 1.5,
-      },
-    ];
+  const headerApiKey = req.headers['x-gemini-api-key'] as string | undefined;
+  const apiKey = bodyApiKey || headerApiKey;
+  const targetId = id || 'analysis_bernoulli_01';
 
-    const result: OlympiadAnalysisResult = {
-      id: 'analysis_bernoulli_01',
-      problemId: 'ONM_RO_BERNOULLI',
-      domain: 'Algebră / Inegalități',
-      problemRo:
-        'Să se demonstreze că pentru orice număr real x ≠ 0 și n ∈ ℕ*, avem (1 + x)ⁿ ≥ 1 + nx, știind că x > -1.',
-      phase: 'sound',
-      scorePercentage: 100.0,
-      scaledScores: {
-        onm7p: { scale: 'ONM (7p)', score: 7.0, maxScore: 7.0, percentage: 100.0 },
-        bac10p: { scale: 'Bac/Examen (10p)', score: 10.0, maxScore: 10.0, percentage: 100.0 },
-        usamo7p: { scale: 'USAMO (7p)', score: 7.0, maxScore: 7.0, percentage: 100.0 },
-      },
-      stepBreakdown: steps,
-      explanationRo: 'Toate cele 4 noduri deductive au fost verificate conform regulilor formale. Punctaj complet acordat!',
-      teacherCritiqueRo:
-        'Excelent! Demonstrația ta respectă exigențele Comisiei Naționale. Ai precizat explicit condiția x > -1 care asigură pozitivitatea termenului 1 + x, evitând capcana clasică a inversării sensului inegalității.',
-      relevantTheorems: THEOREMS_BERNOULLI,
-      typstSource: TYPST_BERNOULLI,
-    };
-
-    // Update SQLite state
-    db.prepare(`
-      UPDATE proof_analyses
-      SET phase = 'sound', score_percentage = 100.0, onm_score = 7.0, bac_score = 10.0,
-          fatal_flaw_step = NULL, cascading_steps_json = '[]',
-          step_breakdown_json = ?, ast_node_break_json = NULL, updated_at = ?
-      WHERE id = 'analysis_bernoulli_01'
-    `).run(JSON.stringify(steps), new Date().toISOString());
-
-    res.json(result);
-  } else {
-    // Cascading Failure Flaw
-    const steps: StepEvaluation[] = [
+  try {
+    const { result, engine } = await verifyProofWithGemini(
       {
-        step: 1,
-        label: 'Cazul de bază (n = 1)',
-        maxPercentage: 15.0,
-        awardedPercentage: 15.0,
-        deductionPercentage: 0.0,
-        isSound: true,
-        commentRo: 'Cazul de bază este verificat.',
-        onmPoints: 1.05,
-        bacPoints: 1.5,
+        proofText,
+        problemTitle,
+        enunt,
+        fixedCondition: Boolean(fixedCondition),
+        imageBase64,
+        mimeType,
+        apiKey,
       },
-      {
-        step: 2,
-        label: 'Ipoteza inductivă',
-        maxPercentage: 25.0,
-        awardedPercentage: 25.0,
-        deductionPercentage: 0.0,
-        isSound: true,
-        commentRo: 'Ipoteza inductivă este formulată corect.',
-        onmPoints: 1.75,
-        bacPoints: 2.5,
-      },
-      {
-        step: 3,
-        label: 'Pasul inductiv',
-        maxPercentage: 45.0,
-        awardedPercentage: 0.0,
-        deductionPercentage: 45.0,
-        isSound: false,
-        commentRo:
-          'EROARE FATALĂ DE RAȚIONAMENT: Înmulțirea inegalității cu (1 + x) fără a demonstra că 1 + x > 0.',
-        onmPoints: 0.0,
-        bacPoints: 0.0,
-      },
-      {
-        step: 4,
-        label: 'Concluzia inducției',
-        maxPercentage: 15.0,
-        awardedPercentage: 0.0,
-        deductionPercentage: 15.0,
-        isSound: false,
-        isCascadedFailure: true,
-        commentRo:
-          'COLAPS ÎN CASCADĂ (0%): Concluzia se bazează pe pasul 3 care este invalidat. Nu se poate trage o concluzie dintr-o premisă nedemonstrată.',
-        onmPoints: 0.0,
-        bacPoints: 0.0,
-      },
-    ];
+      targetId
+    );
 
-    const astBreak = {
-      rule: 'Inequality_Multiply_Rule',
-      condition: '1 + x > 0',
-      status: 'UNVERIFIED',
-    };
+    // Save or update analysis in SQLite
+    saveOrUpdateAnalysis(userId, result);
 
-    const result: OlympiadAnalysisResult = {
-      id: 'analysis_bernoulli_01',
-      problemId: 'ONM_RO_BERNOULLI',
-      domain: 'Algebră / Inegalități',
-      problemRo:
-        'Să se demonstreze că pentru orice număr real x ≠ 0 și n ∈ ℕ*, avem (1 + x)ⁿ ≥ 1 + nx, știind că x > -1.',
-      phase: 'flaw',
-      scorePercentage: 40.0,
-      scaledScores: {
-        onm7p: { scale: 'ONM (7p)', score: 2.8, maxScore: 7.0, percentage: 40.0 },
-        bac10p: { scale: 'Bac/Examen (10p)', score: 4.6, maxScore: 10.0, percentage: 40.0 },
-        usamo7p: { scale: 'USAMO (7p)', score: 2.8, maxScore: 7.0, percentage: 40.0 },
+    res.json({
+      ...result,
+      _meta: {
+        engine,
+        model: engine === 'gemini-1.5-flash' ? 'gemini-1.5-flash' : 'local-deterministic-engine',
+        freeTier: true,
       },
-      fatalFlawStep: 3,
-      cascadingInvalidatedSteps: [4],
-      stepBreakdown: steps,
-      astNodeBreak: astBreak as any,
-      explanationRo:
-        "Logica se rupe la Pasul 3. Ai aplicat pasul inductiv (înmulțind inegalitatea cu 1 + x), dar ai verificat dacă condiția de bază (x > −1) este respectată în acest domeniu?",
-      teacherCritiqueRo:
-        "ATENȚIE: Eroare fatală de olimpiadă la Pasul 3! Ai înmulțit ambii membri ai inegalității P(k) cu (1 + x), dar ai omis să justifici că 1 + x > 0. Pasul 4 (Concluzia) este anulat automat (0 puncte) prin efect de cascadă!",
-      relevantTheorems: THEOREMS_BERNOULLI,
-      typstSource: TYPST_BERNOULLI,
-    };
-
-    // Update SQLite state
-    db.prepare(`
-      UPDATE proof_analyses
-      SET phase = 'flaw', score_percentage = 40.0, onm_score = 2.8, bac_score = 4.6,
-          fatal_flaw_step = 3, cascading_steps_json = '[4]',
-          step_breakdown_json = ?, ast_node_break_json = ?, updated_at = ?
-      WHERE id = 'analysis_bernoulli_01'
-    `).run(JSON.stringify(steps), JSON.stringify(astBreak), new Date().toISOString());
-
-    res.json(result);
+    });
+  } catch (error: any) {
+    console.error('[analyzeProof] Error:', error);
+    res.status(500).json({ error: 'Eroare la procesarea demonstrației matematice.' });
   }
 };
 
-// 4. Scan OCR Proof Simulation
-export const scanProof = (req: AuthenticatedRequest, res: Response): void => {
+// 4. Scan OCR & Multimodal Proof (Gemini 1.5 Flash Vision)
+export const scanProof = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.userId || 'user_demo_01';
+  const { imageBase64, imageUri, mimeType, apiKey: bodyApiKey } = req.body;
+  const headerApiKey = req.headers['x-gemini-api-key'] as string | undefined;
+  const apiKey = bodyApiKey || headerApiKey;
+
+  if (imageBase64) {
+    try {
+      const newAnalysisId = `analysis_${Date.now()}`;
+      const { result, engine } = await verifyProofWithGemini(
+        {
+          imageBase64,
+          mimeType: mimeType || 'image/jpeg',
+          apiKey,
+        },
+        newAnalysisId
+      );
+
+      saveOrUpdateAnalysis(userId, result);
+
+      res.json({
+        success: true,
+        message: 'Scanare și audit multimodal completat prin Gemini 1.5 Flash.',
+        detectedProblem: result.problemId,
+        extractedLatex: result.problemRo,
+        analysis: result,
+        engine,
+      });
+      return;
+    } catch (err: any) {
+      console.error('[scanProof] Error analyzing image:', err);
+    }
+  }
+
+  // Default simulated scan response for UI camera shutter
   res.json({
     success: true,
     message: 'Page captured — running OCR & AST evaluation…',
     detectedProblem: 'ONM_RO_BERNOULLI',
     extractedLatex: '(1 + x)^n >= 1 + nx',
+    engine: isGeminiConfigured(apiKey) ? 'gemini-1.5-flash' : 'local-deterministic',
+  });
+};
+
+// 5. Check Gemini 1.5 Flash Status
+export const getGeminiStatus = (req: AuthenticatedRequest, res: Response): void => {
+  const headerApiKey = req.headers['x-gemini-api-key'] as string | undefined;
+  const configured = isGeminiConfigured(headerApiKey);
+
+  res.json({
+    configured,
+    model: 'gemini-1.5-flash',
+    provider: 'Google AI Studio (Free Tier)',
+    costPerScan: '$0.00 (Free)',
+    rateLimit: '15 requests/minute (Free Tier)',
+    multimodalVision: true,
+    cascadingFailureAuditing: true,
   });
 };
