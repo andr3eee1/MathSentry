@@ -40,11 +40,13 @@ for all $n in NN$. $qed$`;
 
 interface TypstSheetProps {
   onClose?: () => void;
+  typstSource?: string;
 }
 
 export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
-  ({ onClose }, ref) => {
+  ({ onClose, typstSource }, ref) => {
     const snapPoints = useMemo(() => ['85%'], []);
+    const activeSource = typstSource || TYPST_SOURCE;
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -60,7 +62,7 @@ export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
     );
 
     const handleCopy = async () => {
-      await Clipboard.setStringAsync(TYPST_SOURCE);
+      await Clipboard.setStringAsync(activeSource);
       showToast('Typst code copied', 'done');
     };
 
@@ -139,7 +141,7 @@ export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
       );
     };
 
-    const lines = TYPST_SOURCE.split('\n');
+    const lines = activeSource.split('\n');
 
     return (
       <BottomSheetModal

@@ -24,10 +24,13 @@ import {
   AlertTriangle,
   Pencil,
   PauseCircle,
+  ShieldAlert,
+  Sparkles,
 } from 'lucide-react-native';
 import { C, F, SPRING_CONFIG } from '@/theme';
 import { MathText, Var, Sup } from '@/components/MathText';
 import { Phase } from '@/components/PipelineStrip';
+import { OlympiadAnalysisResult, StepEvaluation } from '@/types/olympiad';
 
 interface ProofCardProps {
   phase: Phase;
@@ -36,6 +39,7 @@ interface ProofCardProps {
   inspectorOpen: boolean;
   onToggleInspector: () => void;
   shakeKey: number;
+  analysis?: OlympiadAnalysisResult | null;
 }
 
 export const ProofCard: React.FC<ProofCardProps> = ({
@@ -45,6 +49,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
   inspectorOpen,
   onToggleInspector,
   shakeKey,
+  analysis,
 }) => {
   const [cardHeight, setCardHeight] = useState<number>(600);
 
@@ -66,7 +71,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
     top: beamProgress.value * cardHeight,
   }));
 
-  // Step 3 AlertTriangle pulse (opacity 1 -> 0.5 -> 1, 2s loop)
+  // AlertTriangle pulse for flaw
   const alertOpacity = useSharedValue(1);
   useEffect(() => {
     if (phase !== 'sound') {
@@ -87,7 +92,7 @@ export const ProofCard: React.FC<ProofCardProps> = ({
     opacity: alertOpacity.value,
   }));
 
-  // Shake animation on failed re-analysis: scale [1, 1.02, 1] + translateX [0, -4, 4, 0] over 450ms
+  // Shake animation on failed re-analysis
   const shakeScale = useSharedValue(1);
   const shakeTranslateX = useSharedValue(0);
 
@@ -98,14 +103,16 @@ export const ProofCard: React.FC<ProofCardProps> = ({
         withTiming(1, { duration: 225 })
       );
       shakeTranslateX.value = withSequence(
-        withTiming(-4, { duration: 112 }),
-        withTiming(4, { duration: 113 }),
-        withTiming(0, { duration: 225 })
+        withTiming(-4, { duration: 75 }),
+        withTiming(4, { duration: 75 }),
+        withTiming(-4, { duration: 75 }),
+        withTiming(4, { duration: 75 }),
+        withTiming(0, { duration: 75 })
       );
     }
   }, [shakeKey]);
 
-  const step3ShakeStyle = useAnimatedStyle(() => ({
+  const stepFlawShakeStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: shakeScale.value },
       { translateX: shakeTranslateX.value },
@@ -113,12 +120,72 @@ export const ProofCard: React.FC<ProofCardProps> = ({
   }));
 
   const handleEditConditionPress = (e: any) => {
-    e.stopPropagation?.();
+    e.stopPropagation();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onToggleFixed();
   };
 
-  const isSound = phase === 'sound';
+  const isSound = phase === 'sound' || (analysis?.phase === 'sound' && fixed);
+  const fatalFlawStep = analysis?.fatalFlawStep ?? 3;
+  const steps: StepEvaluation[] = analysis?.stepBreakdown && analysis.stepBreakdown.length > 0
+    ? analysis.stepBreakdown
+    : [
+        {
+          step: 1,
+          label: 'BASE CASE (n = 1)',
+          maxPercentage: 15,
+          awardedPercentage: 15,
+          deductionPercentage: 0,
+          isSound: true,
+          commentRo: 'For n = 1, (1 + x)¹ = 1 + 1(x), which holds identically.',
+          onmPoints: 1.05,
+          bacPoints: 1.5,
+        },
+        {
+          step: 2,
+          label: 'INDUCTIVE HYPOTHESIS',
+          maxPercentage: 25,
+          awardedPercentage: 25,
+          deductionPercentage: 0,
+          isSound: true,
+          commentRo: 'Assume P(k) holds for some k ∈ ℕ, so (1 + x)^k ≥ 1 + kx.',
+          onmPoints: 1.75,
+          bacPoints: 2.5,
+        },
+        {
+          step: 3,
+          label: 'INDUCTIVE STEP',
+          maxPercentage: 45,
+          awardedPercentage: isSound ? 45 : 0,
+          deductionPercentage: isSound ? 0 : 45,
+          isSound: isSound,
+          commentRo: isSound
+            ? 'Since x > −1, we have 1 + x > 0. Multiply both sides by (1 + x): (1 + x)^(k+1) ≥ 1 + (k+1)x.'
+            : 'Multiply both sides of P(k) by (1 + x) to obtain (1 + x)^(k+1) ≥ 1 + (k+1)x.',
+          onmPoints: isSound ? 3.15 : 0,
+          bacPoints: isSound ? 4.5 : 0,
+        },
+        {
+          step: 4,
+          label: 'CONCLUSION',
+          maxPercentage: 15,
+          awardedPercentage: isSound ? 15 : 0,
+          deductionPercentage: isSound ? 0 : 15,
+          isSound: isSound,
+          isCascadedFailure: !isSound,
+          commentRo: isSound
+            ? 'By Mathematical Induction, P(n) holds for all n ∈ ℕ. ∎'
+            : 'COLAPS ÎN CASCADĂ (0%): Concluzia se bazează pe Pasul 3 invalidat.',
+          onmPoints: isSound ? 1.05 : 0,
+          bacPoints: isSound ? 1.5 : 0,
+        },
+      ];
+
+  const problemText = analysis?.problemRo || 'Prove that for all real x ≠ 0, (1 + x)ⁿ ≥ 1 + nx for n ∈ ℕ, given x > -1.';
+  const domainText = analysis?.domain || 'Algebră / Inegalități';
+  const onmScore = analysis?.scaledScores?.onm7p?.score ?? (isSound ? 7.0 : 2.8);
+  const bacScore = analysis?.scaledScores?.bac10p?.score ?? (isSound ? 10.0 : 4.6);
+  const scorePct = analysis?.scorePercentage ?? (isSound ? 100 : 40);
 
   return (
     <View
@@ -142,171 +209,184 @@ export const ProofCard: React.FC<ProofCardProps> = ({
         </Animated.View>
       )}
 
+      {/* Header Banner: Domain & Official Scales */}
+      <View style={styles.cardHeaderRow}>
+        <View style={styles.domainBadge}>
+          <Sparkles size={11} color={C.primary} strokeWidth={2} />
+          <Text style={styles.domainBadgeText}>{domainText.toUpperCase()}</Text>
+        </View>
+
+        <View style={styles.scoreBadgesRow}>
+          <View style={[styles.scalePill, isSound ? styles.scalePillSound : styles.scalePillFlaw]}>
+            <Text style={styles.scalePillLabel}>ONM</Text>
+            <Text style={styles.scalePillValue}>{onmScore.toFixed(1)}/7.0p</Text>
+          </View>
+          <View style={[styles.scalePill, isSound ? styles.scalePillSound : styles.scalePillFlaw]}>
+            <Text style={styles.scalePillLabel}>BAC</Text>
+            <Text style={styles.scalePillValue}>{bacScore.toFixed(1)}/10p</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Problem Block */}
       <View style={styles.problemBlock}>
-        <Text style={styles.problemLabel}>PROBLEM</Text>
-        <MathText style={styles.problemText}>
-          Prove that for all real <Var>x</Var> ≠ 0, (1 + <Var>x</Var>)<Sup italic>n</Sup> ≥ 1 + <Var>n</Var><Var>x</Var> for <Var>n</Var> ∈ ℕ.
-        </MathText>
+        <Text style={styles.problemLabel}>PROBLEM STATEMENT</Text>
+        <Text style={styles.problemText}>{problemText}</Text>
       </View>
 
       {/* Steps Container */}
       <View style={styles.stepsContainer}>
-        {/* Step 1: Base Case */}
-        <View style={styles.verifiedStep}>
-          <View style={styles.stepTopRow}>
-            <Text style={styles.stepLabel}>STEP 1 · BASE CASE</Text>
-            <View style={styles.checkBadge}>
-              <Check size={12} color={C.success} strokeWidth={2} />
-            </View>
-          </View>
-          <MathText style={styles.stepBody}>
-            For <Var>n</Var> = 1, (1 + <Var>x</Var>)<Sup>1</Sup> = 1 + 1(<Var>x</Var>), which holds identically.
-          </MathText>
-        </View>
+        {steps.map((step) => {
+          const stepNum = step.step;
+          const isThisFatalFlaw = !isSound && stepNum === fatalFlawStep;
+          const isThisCascaded = !isSound && (step.isCascadedFailure || stepNum > fatalFlawStep);
+          const isThisSound = isSound || (step.isSound && !isThisFatalFlaw && !isThisCascaded);
 
-        {/* Step 2: Inductive Hypothesis */}
-        <View style={styles.verifiedStep}>
-          <View style={styles.stepTopRow}>
-            <Text style={styles.stepLabel}>STEP 2 · INDUCTIVE HYPOTHESIS</Text>
-            <View style={styles.checkBadge}>
-              <Check size={12} color={C.success} strokeWidth={2} />
-            </View>
-          </View>
-          <MathText style={styles.stepBody}>
-            Assume <Var>P</Var>(<Var>k</Var>) holds for some <Var>k</Var> ∈ ℕ, so (1 + <Var>x</Var>)<Sup italic>k</Sup> ≥ 1 + <Var>k</Var><Var>x</Var>.
-          </MathText>
-        </View>
-
-        {/* Step 3: Flaw / Sound Step */}
-        {isSound ? (
-          <View style={styles.verifiedStep}>
-            <View style={styles.stepTopRow}>
-              <Text style={styles.stepLabel}>STEP 3 · INDUCTIVE STEP</Text>
-              <View style={styles.checkBadge}>
-                <Check size={12} color={C.success} strokeWidth={2} />
-              </View>
-            </View>
-            <MathText style={styles.stepBody}>
-              Since <Var>x</Var> &gt; −1, we have 1 + <Var>x</Var> &gt; 0. Multiply both sides of <Var>P</Var>(<Var>k</Var>) by (1 + <Var>x</Var>): (1 + <Var>x</Var>)<Sup italic>k+1</Sup> ≥ (1 + <Var>k</Var><Var>x</Var>)(1 + <Var>x</Var>) = 1 + (<Var>k</Var>+1)<Var>x</Var> + <Var>k</Var><Var>x</Var><Sup>2</Sup> ≥ 1 + (<Var>k</Var>+1)<Var>x</Var>.
-            </MathText>
-          </View>
-        ) : (
-          <Animated.View style={step3ShakeStyle}>
-            <Pressable
-              onPress={onToggleInspector}
-              style={styles.step3FlawContainer}
-            >
-              <View style={styles.stepTopRow}>
-                <View style={styles.step3TitleRow}>
-                  <Animated.View style={alertAnimatedStyle}>
-                    <AlertTriangle size={14} color={C.flaw} strokeWidth={2} />
-                  </Animated.View>
-                  <Text style={styles.step3Label}>STEP 3 · INDUCTIVE STEP</Text>
-                </View>
-                <View style={styles.astBreakBadge}>
-                  <Text style={styles.astBreakText}>AST Node Break</Text>
-                </View>
-              </View>
-
-              <MathText style={styles.stepBody}>
-                {fixed && (
-                  <Text style={styles.fixedHighlightSpan}>
-                    Given <Var>x</Var> &gt; −1,{' '}
+          if (isThisSound) {
+            return (
+              <View key={`step-${stepNum}`} style={styles.verifiedStep}>
+                <View style={styles.stepTopRow}>
+                  <Text style={styles.stepLabel}>
+                    STEP {stepNum} · {step.label.toUpperCase()}
                   </Text>
-                )}
-                Multiply both sides of <Var>P</Var>(<Var>k</Var>) by (1 + <Var>x</Var>) to obtain (1 + <Var>x</Var>)<Sup italic>k+1</Sup> ≥ (1 + <Var>k</Var><Var>x</Var>)(1 + <Var>x</Var>) = 1 + (<Var>k</Var>+1)<Var>x</Var> + <Var>k</Var><Var>x</Var><Sup>2</Sup> ≥ 1 + (<Var>k</Var>+1)<Var>x</Var>.
-              </MathText>
+                  <View style={styles.scoreAndCheck}>
+                    <Text style={styles.stepPointsPositive}>+{step.onmPoints.toFixed(2)}p</Text>
+                    <View style={styles.checkBadge}>
+                      <Check size={12} color={C.success} strokeWidth={2.5} />
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.stepBody}>{step.commentRo}</Text>
+              </View>
+            );
+          }
 
-              {!inspectorOpen ? (
-                <Text style={styles.collapsedHint}>
-                  Tap to inspect AST node
-                </Text>
-              ) : (
-                <Animated.View
-                  entering={FadeIn.duration(200)}
-                  exiting={FadeOut.duration(150)}
-                  layout={LinearTransition.springify().damping(SPRING_CONFIG.damping).stiffness(SPRING_CONFIG.stiffness)}
-                  style={styles.inspectorContainer}
+          if (isThisFatalFlaw) {
+            return (
+              <Animated.View key={`step-${stepNum}`} style={stepFlawShakeStyle}>
+                <Pressable
+                  onPress={onToggleInspector}
+                  style={styles.step3FlawContainer}
                 >
-                  {/* Code pill */}
-                  <View style={styles.codePill}>
-                    <Text style={styles.codePillText}>
-                      <Text style={{ color: C.primary, fontFamily: F.mono }}>
-                        Inequality_Multiply_Rule
+                  <View style={styles.stepTopRow}>
+                    <View style={styles.step3TitleRow}>
+                      <Animated.View style={alertAnimatedStyle}>
+                        <AlertTriangle size={14} color={C.flaw} strokeWidth={2.5} />
+                      </Animated.View>
+                      <Text style={styles.step3Label}>
+                        STEP {stepNum} · {step.label.toUpperCase()}
                       </Text>
-                      {' :: Condition [1 + x > 0] → '}
-                      {fixed ? (
-                        <Text style={{ color: C.success, fontFamily: F.mono }}>
-                          ASSERTED (pending re-analysis)
-                        </Text>
-                      ) : (
-                        <Text style={{ color: C.warn, fontFamily: F.mono }}>
-                          UNVERIFIED
-                        </Text>
-                      )}
-                    </Text>
+                    </View>
+                    <View style={styles.astBreakBadge}>
+                      <Text style={styles.astBreakText}>AST Node Break</Text>
+                    </View>
                   </View>
 
-                  {/* Toggle Button */}
-                  <Pressable
-                    onPress={handleEditConditionPress}
-                    style={[
-                      styles.inspectorButton,
-                      fixed
-                        ? styles.inspectorButtonFixed
-                        : styles.inspectorButtonUnfixed,
-                    ]}
-                  >
-                    {fixed ? (
-                      <>
-                        <Check size={14} color={C.success} strokeWidth={2} />
-                        <Text style={styles.inspectorButtonTextFixed}>
-                          Domain restriction x &gt; −1 added
-                        </Text>
-                      </>
-                    ) : (
-                      <>
-                        <Pencil size={14} color={C.foreground} strokeWidth={2} />
-                        <Text style={styles.inspectorButtonTextUnfixed}>
-                          Edit Step 3 Condition: add x &gt; −1
-                        </Text>
-                      </>
+                  <Text style={styles.stepBody}>
+                    {fixed && (
+                      <Text style={styles.fixedHighlightSpan}>
+                        [Condiție adăugată: x &gt; -1 garantând 1 + x &gt; 0]{' '}
+                      </Text>
                     )}
-                  </Pressable>
-                </Animated.View>
-              )}
-            </Pressable>
-          </Animated.View>
-        )}
+                    {step.commentRo}
+                  </Text>
 
-        {/* Step 4: Conclusion */}
-        <View
-          style={[
-            styles.verifiedStep,
-            { opacity: isSound ? 1 : 0.45 },
-          ]}
-        >
-          <View style={styles.stepTopRow}>
-            <Text style={styles.stepLabel}>STEP 4 · CONCLUSION</Text>
-            {isSound ? (
-              <View style={styles.checkBadge}>
-                <Check size={12} color={C.success} strokeWidth={2} />
+                  {!inspectorOpen ? (
+                    <Text style={styles.collapsedHint}>
+                      Apasă pentru a inspecta nodul AST și regula încălcată
+                    </Text>
+                  ) : (
+                    <Animated.View
+                      entering={FadeIn.duration(200)}
+                      exiting={FadeOut.duration(150)}
+                      layout={LinearTransition.springify().damping(SPRING_CONFIG.damping).stiffness(SPRING_CONFIG.stiffness)}
+                      style={styles.inspectorContainer}
+                    >
+                      {/* Code pill */}
+                      <View style={styles.codePill}>
+                        <Text style={styles.codePillText}>
+                          <Text style={{ color: C.primary, fontFamily: F.mono }}>
+                            {analysis?.astNodeBreak?.rule || 'Inequality_Multiply_Rule'}
+                          </Text>
+                          {' :: Condition ['}
+                          <Text style={{ color: C.warn, fontFamily: F.mono }}>
+                            {analysis?.astNodeBreak?.condition || '1 + x > 0'}
+                          </Text>
+                          {'] → '}
+                          {fixed ? (
+                            <Text style={{ color: C.success, fontFamily: F.mono }}>
+                              ASSERTED (re-analizează)
+                            </Text>
+                          ) : (
+                            <Text style={{ color: C.warn, fontFamily: F.mono }}>
+                              UNVERIFIED
+                            </Text>
+                          )}
+                        </Text>
+                      </View>
+
+                      {/* Interactive toggle button */}
+                      <Pressable
+                        onPress={handleEditConditionPress}
+                        style={[
+                          styles.inspectorButton,
+                          fixed
+                            ? styles.inspectorButtonFixed
+                            : styles.inspectorButtonUnfixed,
+                        ]}
+                      >
+                        {fixed ? (
+                          <>
+                            <Check size={14} color={C.success} strokeWidth={2} />
+                            <Text style={styles.inspectorButtonTextFixed}>
+                              Condiție specificată (1 + x &gt; 0)
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Pencil size={14} color={C.foreground} strokeWidth={2} />
+                            <Text style={styles.inspectorButtonTextUnfixed}>
+                              Corectează pasul: adaugă premisa lipsă
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+                    </Animated.View>
+                  )}
+                </Pressable>
+              </Animated.View>
+            );
+          }
+
+          // Cascaded Failure step
+          return (
+            <View
+              key={`step-${stepNum}`}
+              style={[
+                styles.cascadedStep,
+                { opacity: 0.55 },
+              ]}
+            >
+              <View style={styles.stepTopRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <ShieldAlert size={13} color={C.flaw} strokeWidth={2} />
+                  <Text style={styles.cascadedStepLabel}>
+                    STEP {stepNum} · {step.label.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.awaitingBadge}>
+                  <PauseCircle size={12} color={C.flaw} strokeWidth={2} />
+                  <Text style={styles.awaitingText}>
+                    COLAPS ÎN CASCADĂ (0p)
+                  </Text>
+                </View>
               </View>
-            ) : (
-              <View style={styles.awaitingBadge}>
-                <PauseCircle size={12} color={C.mutedFg} strokeWidth={2} />
-                <Text style={styles.awaitingText}>
-                  Awaiting Step 3 resolution
-                </Text>
-              </View>
-            )}
-          </View>
-          <MathText style={styles.stepBody}>
-            By Mathematical Induction, <Var>P</Var>(<Var>n</Var>) holds for all{' '}
-            <Var>n</Var> ∈ ℕ. ∎
-          </MathText>
-        </View>
+              <Text style={styles.stepBody}>
+                {step.commentRo || `Pas anulat (0 puncte). Acest pas depinde deductiv de Pasul ${fatalFlawStep} care a fost invalidat.`}
+              </Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -318,53 +398,110 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-    overflow: 'hidden',
+    padding: 16,
     position: 'relative',
+    overflow: 'hidden',
   },
   scanningBeamContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    height: 64,
+    left: 0,
+    right: 0,
+    height: 48,
     zIndex: 10,
   },
   scanningBeam: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  domainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(91,82,242,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  domainBadgeText: {
+    fontSize: 10.5,
+    fontFamily: F.mono,
+    color: C.primary,
+    fontWeight: '700',
+  },
+  scoreBadgesRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  scalePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  scalePillSound: {
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderColor: 'rgba(16,185,129,0.3)',
+  },
+  scalePillFlaw: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderColor: 'rgba(239,68,68,0.3)',
+  },
+  scalePillLabel: {
+    fontSize: 9.5,
+    fontFamily: F.mono,
+    color: C.mutedFg,
+    fontWeight: '600',
+  },
+  scalePillValue: {
+    fontSize: 10.5,
+    fontFamily: F.mono,
+    color: C.foreground,
+    fontWeight: '700',
   },
   problemBlock: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    marginBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
   problemLabel: {
-    fontFamily: F.uiSemi,
     fontSize: 10,
-    letterSpacing: 1.5,
+    fontFamily: F.mono,
     color: C.mutedFg,
+    letterSpacing: 1.2,
+    marginBottom: 6,
   },
   problemText: {
-    marginTop: 4,
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 14.5,
+    lineHeight: 21,
     color: C.foreground,
+    fontFamily: F.math,
   },
   stepsContainer: {
-    padding: 16,
     gap: 12,
   },
   verifiedStep: {
+    backgroundColor: C.muted,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(226,232,240,0.7)',
-    padding: 14,
+    borderColor: C.border,
+    padding: 12,
+  },
+  cascadedStep: {
+    backgroundColor: 'rgba(239,68,68,0.04)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+    padding: 12,
   },
   stepTopRow: {
     flexDirection: 'row',
@@ -372,33 +509,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
+  scoreAndCheck: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  stepPointsPositive: {
+    fontSize: 10.5,
+    fontFamily: F.mono,
+    color: C.success,
+    fontWeight: '600',
+  },
   stepLabel: {
-    fontFamily: F.uiSemi,
-    fontSize: 11,
-    letterSpacing: 0.6,
+    fontSize: 10.5,
+    fontFamily: F.mono,
     color: C.mutedFg,
+    letterSpacing: 0.8,
+  },
+  cascadedStepLabel: {
+    fontSize: 10.5,
+    fontFamily: F.mono,
+    color: C.flaw,
+    letterSpacing: 0.8,
   },
   checkBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: C.successSoft,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(16,185,129,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepBody: {
-    fontFamily: F.math,
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 13.5,
+    lineHeight: 20,
     color: C.foreground,
+    fontFamily: F.math,
   },
   step3FlawContainer: {
-    backgroundColor: C.flawSoft,
-    borderLeftWidth: 4,
-    borderLeftColor: C.flaw,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
-    padding: 14,
+    backgroundColor: 'rgba(239,68,68,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.flaw,
+    padding: 12,
   },
   step3TitleRow: {
     flexDirection: 'row',
@@ -406,91 +559,98 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   step3Label: {
-    fontFamily: F.uiSemi,
-    fontSize: 11,
-    letterSpacing: 0.6,
+    fontSize: 10.5,
+    fontFamily: F.mono,
     color: C.flaw,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   astBreakBadge: {
-    backgroundColor: C.flaw,
-    borderRadius: 999,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
+    borderRadius: 4,
   },
   astBreakText: {
-    fontFamily: F.uiSemi,
-    fontSize: 10,
-    color: '#FFFFFF',
-  },
-  fixedHighlightSpan: {
-    backgroundColor: C.successSoft,
-    color: C.success,
-    borderRadius: 4,
-    paddingHorizontal: 4,
+    fontSize: 9.5,
+    fontFamily: F.mono,
+    color: C.flaw,
+    fontWeight: '700',
   },
   collapsedHint: {
-    fontFamily: F.ui,
     fontSize: 11,
-    color: 'rgba(239,68,68,0.8)',
+    fontFamily: F.mono,
+    color: C.mutedFg,
     marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  fixedHighlightSpan: {
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    color: C.success,
+    fontWeight: '600',
   },
   inspectorContainer: {
-    marginTop: 4,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(239,68,68,0.2)',
+    gap: 8,
   },
   codePill: {
-    marginTop: 12,
-    backgroundColor: C.slateDeep,
+    backgroundColor: C.muted,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   codePillText: {
-    fontFamily: F.mono,
     fontSize: 11,
-    lineHeight: 18,
-    color: '#FFFFFF',
+    color: C.foreground,
+    fontFamily: F.mono,
   },
   inspectorButton: {
-    marginTop: 8,
-    alignSelf: 'stretch',
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    paddingVertical: 8,
   },
   inspectorButtonUnfixed: {
+    backgroundColor: C.card,
     borderColor: C.border,
-    backgroundColor: '#FFFFFF',
   },
   inspectorButtonFixed: {
-    borderColor: 'rgba(22,163,74,0.4)',
-    backgroundColor: C.successSoft,
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderColor: C.success,
   },
   inspectorButtonTextUnfixed: {
-    fontFamily: F.uiMed,
     fontSize: 12,
+    fontFamily: F.mono,
     color: C.foreground,
   },
   inspectorButtonTextFixed: {
-    fontFamily: F.uiMed,
     fontSize: 12,
+    fontFamily: F.mono,
     color: C.success,
+    fontWeight: '600',
   },
   awaitingBadge: {
-    backgroundColor: C.muted,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   awaitingText: {
-    fontFamily: F.ui,
-    fontSize: 10,
-    color: C.mutedFg,
+    fontSize: 9.5,
+    fontFamily: F.mono,
+    color: C.flaw,
+    fontWeight: '700',
   },
 });

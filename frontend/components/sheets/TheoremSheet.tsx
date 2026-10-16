@@ -12,11 +12,25 @@ import { MathText, Var, Sup } from '@/components/MathText';
 
 interface TheoremSheetProps {
   onClose?: () => void;
+  theorems?: Array<{ name: string; statement: string }>;
 }
 
 export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
-  ({ onClose }, ref) => {
+  ({ onClose, theorems }, ref) => {
     const snapPoints = useMemo(() => ['85%'], []);
+
+    const activeTheorems = theorems && theorems.length > 0
+      ? theorems
+      : [
+          {
+            name: "BERNOULLI'S INEQUALITY",
+            statement: 'Pentru orice număr întreg n ≥ 0 și orice număr real x ≥ −1, (1 + x)ⁿ ≥ 1 + nx.',
+          },
+          {
+            name: 'ORDER AXIOM FOR MULTIPLICATION',
+            statement: 'Dacă a ≥ b și c > 0, atunci ac ≥ bc. Dacă c < 0, sensul inegalității se inversează.',
+          },
+        ];
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -56,37 +70,24 @@ export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
           {/* Title Row */}
           <View style={styles.titleRow}>
             <BookOpen size={16} color={C.primary} strokeWidth={2} />
-            <Text style={styles.title}>Relevant Theorems</Text>
+            <Text style={styles.title}>Teoreme & Axiome Relevante</Text>
           </View>
 
-          {/* Box 1: BERNOULLI'S INEQUALITY */}
-          <View style={styles.box1}>
-            <Text style={styles.boxLabel}>BERNOULLI&apos;S INEQUALITY</Text>
-            <MathText style={styles.boxBody}>
-              For every integer <Var>n</Var> ≥ 0 and every real number{' '}
-              <Text style={styles.highlightSpan}>
-                <Var>x</Var> ≥ −1
-              </Text>
-              , (1 + <Var>x</Var>)<Sup italic>n</Sup> ≥ 1 + <Var>n</Var><Var>x</Var>.
-            </MathText>
-          </View>
-
-          {/* Box 2: ORDER AXIOM FOR MULTIPLICATION */}
-          <View style={styles.box2}>
-            <Text style={styles.boxLabel}>ORDER AXIOM FOR MULTIPLICATION</Text>
-            <MathText style={styles.boxBody}>
-              If <Var>a</Var> ≥ <Var>b</Var> and{' '}
-              <Text style={styles.highlightSpan}>
-                <Var>c</Var> &gt; 0
-              </Text>
-              , then <Var>a</Var><Var>c</Var> ≥ <Var>b</Var><Var>c</Var>. If <Var>c</Var> &lt; 0, the inequality reverses.
-            </MathText>
+          {/* Dynamic Theorem List */}
+          <View style={{ gap: 12, marginTop: 8 }}>
+            {activeTheorems.map((t, idx) => (
+              <View key={`thm-${idx}`} style={styles.box1}>
+                <Text style={styles.boxLabel}>{t.name.toUpperCase()}</Text>
+                <Text style={[styles.boxBody, { fontFamily: F.ui, lineHeight: 20 }]}>
+                  {t.statement}
+                </Text>
+              </View>
+            ))}
           </View>
 
           {/* Footer */}
           <Text style={styles.footerText}>
-            Ask yourself: what must be true about the multiplier before the
-            inequality direction is preserved?
+            Comisia Națională de Matematică cere justificarea explicită a oricărui domeniu de definiție și a condițiilor de pozitivitate înainte de aplicarea acestor teoreme.
           </Text>
         </BottomSheetView>
       </BottomSheetModal>

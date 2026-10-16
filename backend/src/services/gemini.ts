@@ -2,8 +2,21 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { OlympiadAnalysisResult, StepEvaluation } from '../types/olympiad';
 
 /**
+ * Candidate Flash models in order of priority.
+ * Google AI Studio routes 'gemini-flash-latest' to the current free tier production model.
+ */
+export const CANDIDATE_MODELS = [
+  'gemini-flash-latest',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-2.5-flash',
+  'gemini-1.5-flash',
+];
+
+/**
  * MathSentry Master Olympiad Prompt
- * Designed specifically for Gemini 1.5 Flash to act as a National Olympiad Grading Commission President.
+ * Designed specifically for Gemini Flash to act as a National Olympiad Grading Commission President.
  */
 export const MATHSENTRY_MASTER_SYSTEM_INSTRUCTION = `
 Ești MathSentry, cel mai riguros motor AI de nivel olimpic internațional specializat în verificarea formală, analiza arborelui deductiv (AST) și notarea pe barem național (Olimpiada Națională de Matematică - ONM, OJM, Baraj, Bacalaureat și USAMO) a demonstrațiilor matematice.
@@ -100,7 +113,7 @@ export function getGeminiApiKey(customKey?: string): string | null {
 }
 
 /**
- * Check whether Gemini 1.5 Flash is configured and available.
+ * Check whether Gemini Flash is configured and available.
  */
 export function isGeminiConfigured(customKey?: string): boolean {
   return Boolean(getGeminiApiKey(customKey));
@@ -157,7 +170,7 @@ function normalizeGeminiResult(raw: any, fallbackId: string): OlympiadAnalysisRe
       usamo7p: { scale: 'USAMO (7p)', score: onmScore, maxScore: 7.0, percentage: scorePct },
     },
     stepBreakdown,
-    fatalFlawStep: typeof raw.fatalFlawStep === 'number' ? raw.fatalFlawStep : (isSound ? undefined : (raw.fatalFlawStep || 3)),
+    fatalFlawStep: typeof raw.fatalFlawStep === 'number' ? raw.fatalFlawStep : (isSound ? undefined : 3),
     cascadingInvalidatedSteps: Array.isArray(raw.cascadingInvalidatedSteps) ? raw.cascadingInvalidatedSteps : (isSound ? [] : [4]),
     astNodeBreak: raw.astNodeBreak || (isSound ? undefined : {
       rule: 'Inequality_Multiply_Sign_Check',
@@ -181,14 +194,15 @@ function normalizeGeminiResult(raw: any, fallbackId: string): OlympiadAnalysisRe
 }
 
 /**
- * Execute Gemini 1.5 Flash analysis with master prompt.
+ * Execute Gemini Flash analysis with master prompt.
+ * Automatically tries candidate models (gemini-flash-latest, gemini-3.5-flash, etc.).
  * Seamlessly handles both multimodal photos (handwritten Olympiad notebook page)
  * and typed mathematical solutions.
  */
 export async function verifyProofWithGemini(
   options: GeminiVerifyOptions,
   fallbackAnalysisId: string = 'analysis_bernoulli_01'
-): Promise<{ result: OlympiadAnalysisResult; engine: 'gemini-1.5-flash' | 'local-deterministic' }> {
+): Promise<{ result: OlympiadAnalysisResult; engine: string }> {
   const apiKey = getGeminiApiKey(options.apiKey);
 
   if (!apiKey) {
@@ -199,57 +213,70 @@ export async function verifyProofWithGemini(
     };
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: MATHSENTRY_MASTER_SYSTEM_INSTRUCTION,
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const userPromptText = `
-AUDIT DE DEMONSTRAȚIE MATEMATICĂ (Barem ONM):
+  const userPromptText = `
+AUDIT DE DEMONSTRAȚIE MATEMATICĂ (Barem Oficial ONM):
 Problema: ${options.problemTitle || 'Inegalitatea lui Bernoulli și Condiția Critică de Semn'}
 Enunț: ${options.enunt || 'Pentru orice x > -1 real și n natural nenul, să se demonstreze (1 + x)^n >= 1 + nx.'}
-${options.fixedCondition ? 'Notă elev: Am inclus explicit condiția că 1 + x > 0 deoarece x > -1.' : ''}
+${options.fixedCondition ? 'Notă elev / Corectură adusă: Am verificat și specificat explicit condiția critică (ex: 1 + x > 0 datorită ipotezei x > -1).' : ''}
 
 Soluția de verificat:
 ${options.proofText || (options.imageBase64 ? 'Analizează imaginea atașată a demonstrației scrise de mână pe foaie.' : (options.fixedCondition ? 'Pasul 1: Cazul de bază n=1 verificat.\nPasul 2: Ipoteza inductivă (1+x)^k >= 1+kx.\nPasul 3: Deoarece x > -1, avem 1+x > 0. Înmulțind obținem (1+x)^(k+1) >= (1+kx)(1+x) = 1+(k+1)x + kx^2 >= 1+(k+1)x.\nPasul 4: Concluzie conform principiului inducției matematice.' : 'Pasul 1: Cazul de bază n=1 verificat.\nPasul 2: Ipoteza inductivă (1+x)^k >= 1+kx.\nPasul 3: Înmulțim cu (1+x) și obținem (1+x)^(k+1) >= (1+kx)(1+x) = 1+(k+1)x + kx^2 >= 1+(k+1)x.\nPasul 4: Concluzia este demonstrată.'))}
 `;
 
-    let responseText: string;
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    let responseText: string | null = null;
+    let successfulModel = 'gemini-flash-latest';
+    let lastError: any = null;
 
-    if (options.imageBase64) {
-      // Multimodal Vision with Gemini 1.5 Flash
-      const cleanBase64 = options.imageBase64.replace(/^data:image\/\w+;base64,/, '');
-      const imagePart = {
-        inlineData: {
-          data: cleanBase64,
-          mimeType: options.mimeType || 'image/jpeg',
-        },
-      };
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: MATHSENTRY_MASTER_SYSTEM_INSTRUCTION,
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+          },
+        });
 
-      const resp = await model.generateContent([userPromptText, imagePart]);
-      responseText = resp.response.text();
-    } else {
-      // Text-based Audit with Gemini 1.5 Flash
-      const resp = await model.generateContent(userPromptText);
-      responseText = resp.response.text();
+        if (options.imageBase64) {
+          const cleanBase64 = options.imageBase64.replace(/^data:image\/\w+;base64,/, '');
+          const imagePart = {
+            inlineData: {
+              data: cleanBase64,
+              mimeType: options.mimeType || 'image/jpeg',
+            },
+          };
+          const resp = await model.generateContent([userPromptText, imagePart]);
+          responseText = resp.response.text();
+        } else {
+          const resp = await model.generateContent(userPromptText);
+          responseText = resp.response.text();
+        }
+
+        successfulModel = modelName;
+        break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[MathSentry Gemini] Candidate ${modelName} failed: ${err?.message || err}. Trying next...`);
+      }
+    }
+
+    if (!responseText) {
+      throw lastError || new Error('All candidate Gemini models failed to generate content.');
     }
 
     const parsedJson = JSON.parse(responseText);
     const normalized = normalizeGeminiResult(parsedJson, fallbackAnalysisId);
 
-    console.log(`[MathSentry Gemini] Successfully evaluated with Gemini 1.5 Flash! Phase: ${normalized.phase}, Score: ${normalized.scorePercentage}%`);
+    console.log(`[MathSentry Gemini] Evaluated via ${successfulModel}! Phase: ${normalized.phase}, Score: ${normalized.scorePercentage}%`);
     return {
       result: normalized,
-      engine: 'gemini-1.5-flash',
+      engine: successfulModel,
     };
   } catch (err: any) {
-    console.error('[MathSentry Gemini] Error calling Gemini 1.5 Flash API:', err?.message || err);
+    console.error('[MathSentry Gemini] Error calling Gemini API:', err?.message || err);
     console.warn('[MathSentry Gemini] Gracefully falling back to deterministic Olympiad engine.');
     return {
       result: getDeterministicFallback(options.fixedCondition, fallbackAnalysisId),

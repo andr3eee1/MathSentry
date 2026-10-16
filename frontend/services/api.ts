@@ -134,6 +134,7 @@ class ApiService {
   }
 
   async analyzeProof(params: {
+    id?: string;
     fixedCondition?: boolean;
     proofText?: string;
     problemTitle?: string;

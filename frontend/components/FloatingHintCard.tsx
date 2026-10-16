@@ -22,9 +22,11 @@ import {
   ChevronDown,
   Check,
   Loader2,
+  BookOpen,
 } from 'lucide-react-native';
 import { C, F, indigoShadow, SPRING_CONFIG } from '@/theme';
 import { Phase } from '@/components/PipelineStrip';
+import { OlympiadAnalysisResult } from '@/types/olympiad';
 
 interface FloatingHintCardProps {
   phase: Phase;
@@ -33,6 +35,7 @@ interface FloatingHintCardProps {
   onReAnalyze: () => void;
   onOpenTheorem: () => void;
   onReset: () => void;
+  analysis?: OlympiadAnalysisResult | null;
 }
 
 export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
@@ -42,10 +45,10 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
   onReAnalyze,
   onOpenTheorem,
   onReset,
+  analysis,
 }) => {
   const insets = useSafeAreaInsets();
 
-  // Entry translateY 40 -> 0 + opacity 0 -> 1 with spring
   const entryY = useSharedValue(40);
   const entryOpacity = useSharedValue(0);
 
@@ -59,7 +62,6 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
     opacity: entryOpacity.value,
   }));
 
-  // Chevron rotation 0 / 180 (collapsed = 180)
   const chevronRotation = useSharedValue(hintOpen ? 0 : 180);
   useEffect(() => {
     chevronRotation.value = withSpring(hintOpen ? 0 : 180, SPRING_CONFIG);
@@ -69,7 +71,6 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
     transform: [{ rotate: `${chevronRotation.value}deg` }],
   }));
 
-  // Spinner rotation for Re-Analyze button while scanning
   const spinVal = useSharedValue(0);
   useEffect(() => {
     if (phase === 'scanning') {
@@ -89,7 +90,10 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
   }));
 
   const isScanning = phase === 'scanning';
-  const isSound = phase === 'sound';
+  const isSound = phase === 'sound' || (analysis?.phase === 'sound' && !isScanning);
+  const fatalFlawStep = analysis?.fatalFlawStep ?? 3;
+  const critiqueText = analysis?.teacherCritiqueRo || analysis?.explanationRo ||
+    `Logica se rupe la Pasul ${fatalFlawStep}. Ai aplicat regula deductivă fără a justifica pozitivitatea termenului critic.`;
 
   return (
     <Animated.View
@@ -108,12 +112,14 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
         >
           <Check size={20} color={C.success} strokeWidth={2} />
           <View style={styles.soundTextColumn}>
-            <Text style={styles.soundTitle}>AST Logic Sound ✓</Text>
-            <Text style={styles.soundSubtitle}>
-              All 4 nodes verified against formal rules.
+            <Text style={styles.soundTitle}>
+              AST Logic Sound ✓ ({analysis?.scaledScores?.onm7p?.score ?? 7.0}/7.0p)
+            </Text>
+            <Text style={styles.soundSubtitle} numberOfLines={2}>
+              {analysis?.teacherCritiqueRo || 'Toate nodurile deductive au fost validate conform baremului național.'}
             </Text>
           </View>
-          <Pressable onPress={onReset} hitSlop={8}>
+          <Pressable onPress={onReset} hitSlop={8} style={styles.resetButton}>
             <Text style={styles.resetButtonText}>Reset</Text>
           </Pressable>
         </Animated.View>
@@ -127,7 +133,9 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
           {/* Header Pressable */}
           <Pressable onPress={onToggleHint} style={styles.headerPressable}>
             <Sparkles size={16} color={C.primary} strokeWidth={2} />
-            <Text style={styles.headerTitle}>AST Structural Flaw Detected</Text>
+            <Text style={styles.headerTitle}>
+              Audit Olimpic · Fractură Deductivă Pas {fatalFlawStep}
+            </Text>
             <Animated.View style={chevronAnimatedStyle}>
               <ChevronDown size={16} color={C.mutedFg} strokeWidth={2} />
             </Animated.View>
@@ -141,17 +149,12 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
               layout={LinearTransition.springify().damping(SPRING_CONFIG.damping).stiffness(SPRING_CONFIG.stiffness)}
             >
               <Text style={styles.bodyText}>
-                Your logic breaks at{' '}
-                <Text style={styles.bodyHighlight}>Step 3</Text>. You applied
-                Bernoulli&apos;s inequality step (multiplying the inequality by 1 +
-                x), but did you verify if the base condition{' '}
-                <Text style={styles.bodyMath}>(x &gt; −1)</Text> holds true in
-                this domain?
+                {critiqueText}
               </Text>
 
               {/* Buttons Row */}
               <View style={styles.buttonsRow}>
-                {/* 1. Re-Analyze */}
+                {/* 1. Re-Analyze with Gemini */}
                 <Pressable
                   onPress={onReAnalyze}
                   disabled={isScanning}
@@ -165,7 +168,7 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
                       <Loader2 size={14} color="#FFFFFF" strokeWidth={2} />
                     </Animated.View>
                   ) : (
-                    <Text style={styles.buttonReAnalyzeText}>Re-Analyze</Text>
+                    <Text style={styles.buttonReAnalyzeText}>Re-Analizează cu Gemini</Text>
                   )}
                 </Pressable>
 
@@ -174,8 +177,9 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
                   onPress={onOpenTheorem}
                   style={styles.buttonTheorem}
                 >
+                  <BookOpen size={13} color={C.foreground} strokeWidth={2} />
                   <Text style={styles.buttonTheoremText}>
-                    View Relevant Theorem
+                    Teoreme Relevante
                   </Text>
                 </Pressable>
               </View>
@@ -194,19 +198,13 @@ const styles = StyleSheet.create({
     right: 12,
     zIndex: 20,
   },
-  hintCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: C.primary,
-    borderRadius: 16,
-    padding: 16,
-  },
   soundCard: {
-    borderWidth: 2,
+    backgroundColor: C.card,
+    borderRadius: 14,
+    borderWidth: 1,
     borderColor: C.success,
-    backgroundColor: C.successSoft,
-    borderRadius: 16,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -215,21 +213,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   soundTitle: {
-    fontFamily: F.uiBold,
-    fontSize: 14,
-    color: C.foreground,
+    fontSize: 13,
+    fontFamily: F.mono,
+    color: C.success,
+    fontWeight: '700',
   },
   soundSubtitle: {
-    fontFamily: F.ui,
     fontSize: 12,
+    fontFamily: F.ui,
     color: C.mutedFg,
     marginTop: 2,
+    lineHeight: 16,
+  },
+  resetButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: C.muted,
   },
   resetButtonText: {
-    fontFamily: F.uiMed,
     fontSize: 12,
+    fontFamily: F.mono,
     color: C.primary,
-    padding: 4,
+    fontWeight: '600',
+  },
+  hintCard: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 14,
   },
   headerPressable: {
     flexDirection: 'row',
@@ -237,57 +250,54 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontFamily: F.uiBold,
-    fontSize: 14,
-    color: C.foreground,
     flex: 1,
+    fontSize: 12.5,
+    fontFamily: F.mono,
+    color: C.primary,
+    fontWeight: '700',
   },
   bodyText: {
-    marginTop: 8,
-    fontFamily: F.ui,
     fontSize: 13,
-    lineHeight: 21,
-    color: C.mutedFg,
-  },
-  bodyHighlight: {
-    fontFamily: F.uiBold,
+    lineHeight: 19,
     color: C.foreground,
-  },
-  bodyMath: {
-    fontFamily: F.mathItalic,
-    color: C.foreground,
+    fontFamily: F.ui,
+    marginTop: 10,
+    marginBottom: 12,
   },
   buttonsRow: {
-    marginTop: 12,
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
   },
   buttonReAnalyze: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    height: 38,
     backgroundColor: C.primary,
-    alignItems: 'center',
+    borderRadius: 8,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonReAnalyzeText: {
-    fontFamily: F.uiSemi,
-    fontSize: 13,
     color: '#FFFFFF',
+    fontFamily: F.mono,
+    fontSize: 12,
+    fontWeight: '700',
   },
   buttonTheorem: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: C.border,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
+    backgroundColor: C.muted,
     justifyContent: 'center',
   },
   buttonTheoremText: {
-    fontFamily: F.uiMed,
-    fontSize: 13,
     color: C.foreground,
+    fontFamily: F.mono,
+    fontSize: 11.5,
   },
 });

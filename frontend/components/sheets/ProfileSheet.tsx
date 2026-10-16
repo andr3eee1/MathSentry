@@ -105,6 +105,17 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
             </View>
           </View>
 
+          {/* Gemini AI Status Card */}
+          <View style={styles.aiStatusCard}>
+            <View style={styles.aiStatusHeader}>
+              <View style={styles.aiStatusDot} />
+              <Text style={styles.aiStatusTitle}>Motor AI: Gemini Flash (Free Tier)</Text>
+            </View>
+            <Text style={styles.aiStatusDesc}>
+              Analiză formală AST, verificare matematică în cascadă și suport multimodal pentru scris de mână activat.
+            </Text>
+          </View>
+
           {/* Auth Action Button */}
           <View style={styles.actionContainer}>
             {user ? (
@@ -231,5 +242,38 @@ const styles = StyleSheet.create({
     fontFamily: F.uiSemi,
     fontSize: 13,
     color: '#FFFFFF',
+  },
+  aiStatusCard: {
+    marginTop: 18,
+    width: '100%',
+    backgroundColor: 'rgba(91,82,242,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(91,82,242,0.2)',
+    padding: 12,
+  },
+  aiStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  aiStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.success,
+  },
+  aiStatusTitle: {
+    fontSize: 12,
+    fontFamily: F.mono,
+    color: C.primary,
+    fontWeight: '700',
+  },
+  aiStatusDesc: {
+    fontSize: 11.5,
+    fontFamily: F.ui,
+    color: C.mutedFg,
+    lineHeight: 16,
   },
 });

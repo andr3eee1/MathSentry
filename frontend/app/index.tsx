@@ -50,11 +50,14 @@ import { ScanOverlay } from '@/components/ScanOverlay';
 import { showToast } from '@/components/ToastHelper';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
+import { OlympiadAnalysisResult } from '@/types/olympiad';
 
 interface MainAnalysisScreenProps {
   onBackToDashboard: () => void;
   onLogout?: () => void;
   activeProofId?: string;
+  analysis: OlympiadAnalysisResult | null;
+  onUpdateAnalysis: (data: OlympiadAnalysisResult) => void;
   onOpenTypst: () => void;
   onOpenTheorem: () => void;
   onOpenHistory: () => void;
@@ -66,6 +69,8 @@ function MainAnalysisScreen({
   onBackToDashboard,
   onLogout,
   activeProofId,
+  analysis,
+  onUpdateAnalysis,
   onOpenTypst,
   onOpenTheorem,
   onOpenHistory,
@@ -74,88 +79,76 @@ function MainAnalysisScreen({
 }: MainAnalysisScreenProps) {
   const insets = useSafeAreaInsets();
 
-  // State model
-  const [phase, setPhase] = useState<Phase>('flaw');
-  const [fixed, setFixed] = useState(false);
+  const [phase, setPhase] = useState<Phase>(analysis?.phase === 'sound' ? 'sound' : 'flaw');
+  const [fixed, setFixed] = useState(analysis?.phase === 'sound');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [hintOpen, setHintOpen] = useState(true);
   const [shakeKey, setShakeKey] = useState(0);
 
-  const handleSelectProof = async (id: string) => {
-    try {
-      showToast('Se încarcă analiza…', 'done');
-      const data = await api.getProofById(id);
-      if (data) {
-        if (data.phase === 'sound') {
-          setPhase('sound');
-          setFixed(true);
-          setInspectorOpen(false);
-        } else {
-          setPhase('flaw');
-          setFixed(false);
-          setInspectorOpen(false);
-        }
-        showToast(
-          `Încărcat: ${data.domain || 'Analiză'} (${data.scorePercentage}%)`,
-          'done',
-          'success'
-        );
-      }
-    } catch {
-      showToast('Analiza a fost selectată.', 'done');
-    }
-  };
-
   useEffect(() => {
-    if (activeProofId) {
-      handleSelectProof(activeProofId);
+    if (analysis) {
+      setPhase(analysis.phase === 'sound' ? 'sound' : 'flaw');
+      setFixed(analysis.phase === 'sound');
     }
-  }, [activeProofId]);
+  }, [analysis]);
 
-  // Re-Analyze logic:
-  // Evaluates AST logic against backend engine (with local fallback)
+  // Re-Analyze logic with Gemini 1.5 Flash
   const handleReAnalyze = async () => {
     if (phase === 'scanning') return;
     setPhase('scanning');
 
     try {
+      showToast('Gemini re-auditează arborele deductiv…', 'done');
       const [backendResult] = await Promise.all([
-        api.reAnalyzeProof({ fixedCondition: fixed }).catch(() => null),
-        new Promise((resolve) => setTimeout(resolve, 1200)),
+        api.analyzeProof({
+          id: activeProofId || analysis?.id || 'analysis_bernoulli_01',
+          fixedCondition: fixed,
+          problemTitle: analysis?.problemId,
+          enunt: analysis?.problemRo,
+        }).catch(() => null),
+        new Promise((resolve) => setTimeout(resolve, 800)),
       ]);
 
-      const isSound = backendResult ? backendResult.phase === 'sound' : fixed;
+      if (backendResult) {
+        onUpdateAnalysis(backendResult);
+        const isSound = backendResult.phase === 'sound' || backendResult.scorePercentage >= 99;
 
-      if (isSound) {
-        setPhase('sound');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showToast('AST Logic Sound ✓', 'done', 'success');
+        if (isSound) {
+          setPhase('sound');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          showToast(`AST Logic Sound ✓ (${backendResult.scorePercentage}%)`, 'done', 'success');
+        } else {
+          setPhase('flaw');
+          setShakeKey((prev) => prev + 1);
+          setInspectorOpen(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          showToast(
+            `Pasul ${backendResult.fatalFlawStep || 3} necesită verificare suplimentară.`,
+            'error',
+            'warning'
+          );
+        }
       } else {
-        setPhase('flaw');
-        setShakeKey((prev) => prev + 1);
-        setInspectorOpen(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        showToast(
-          'Step 3 still unverified — check the condition on 1 + x.',
-          'error',
-          'warning'
-        );
+        // Fallback local logic
+        if (fixed) {
+          setPhase('sound');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          showToast('AST Logic Sound ✓', 'done', 'success');
+        } else {
+          setPhase('flaw');
+          setShakeKey((prev) => prev + 1);
+          setInspectorOpen(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
       }
     } catch {
       if (fixed) {
         setPhase('sound');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showToast('AST Logic Sound ✓', 'done', 'success');
       } else {
         setPhase('flaw');
         setShakeKey((prev) => prev + 1);
         setInspectorOpen(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        showToast(
-          'Step 3 still unverified — check the condition on 1 + x.',
-          'error',
-          'warning'
-        );
       }
     }
   };
@@ -169,16 +162,13 @@ function MainAnalysisScreen({
 
   return (
     <View style={styles.screenContainer}>
-      {/* 1. Header (dark, includes safe-area top inset, back returns to dashboard) */}
       <Header
         onOpenTypst={onOpenTypst}
         onBack={onBackToDashboard}
       />
 
-      {/* 2. Pipeline strip */}
       <PipelineStrip phase={phase} />
 
-      {/* 3. ScrollView with Proof card (paddingHorizontal 16, paddingTop 16, paddingBottom 288) */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -191,10 +181,10 @@ function MainAnalysisScreen({
           inspectorOpen={inspectorOpen}
           onToggleInspector={() => setInspectorOpen((prev) => !prev)}
           shakeKey={shakeKey}
+          analysis={analysis}
         />
       </ScrollView>
 
-      {/* 4. Floating Hint Card — absolute, left 12, right 12, bottom 96 + insets.bottom, zIndex 20 */}
       <FloatingHintCard
         phase={phase}
         hintOpen={hintOpen}
@@ -202,9 +192,9 @@ function MainAnalysisScreen({
         onReAnalyze={handleReAnalyze}
         onOpenTheorem={onOpenTheorem}
         onReset={handleReset}
+        analysis={analysis}
       />
 
-      {/* 5. Bottom Nav — absolute bottom, height 80 + insets.bottom, zIndex 30 */}
       <BottomNav
         onOpenHistory={onOpenHistory}
         onOpenProfile={onOpenProfile}
@@ -218,6 +208,7 @@ function RootAppContent() {
   const { user, isGuest, isLoading, logout } = useAuth();
   const [currentView, setCurrentView] = useState<'dashboard' | 'analysis'>('dashboard');
   const [activeProofId, setActiveProofId] = useState<string>('analysis_bernoulli_01');
+  const [currentAnalysis, setCurrentAnalysis] = useState<OlympiadAnalysisResult | null>(null);
 
   // BottomSheetModal references
   const typstSheetRef = useRef<BottomSheetModal>(null);
@@ -229,15 +220,56 @@ function RootAppContent() {
   const [scanOpen, setScanOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  const handleSelectProof = (id: string) => {
+  // Load initial analysis on mount
+  useEffect(() => {
+    async function loadInitial() {
+      try {
+        const data = await api.getProofById(activeProofId);
+        if (data) {
+          setCurrentAnalysis(data);
+        }
+      } catch {
+        // Fallback default
+      }
+    }
+    loadInitial();
+  }, [activeProofId]);
+
+  const handleSelectProof = async (id: string) => {
     setActiveProofId(id);
+    try {
+      showToast('Se încarcă analiza…', 'done');
+      const data = await api.getProofById(id);
+      if (data) {
+        setCurrentAnalysis(data);
+      }
+    } catch {
+      // Keep existing
+    }
     setCurrentView('analysis');
     historySheetRef.current?.dismiss();
   };
 
-  const handleOpenAnalysis = (proofId?: string) => {
+  const handleOpenAnalysis = async (proofId?: string) => {
     if (proofId) {
       setActiveProofId(proofId);
+      try {
+        const data = await api.getProofById(proofId);
+        if (data) {
+          setCurrentAnalysis(data);
+        }
+      } catch {
+        // Keep existing
+      }
+    }
+    setCurrentView('analysis');
+  };
+
+  const handleScanComplete = (data?: OlympiadAnalysisResult) => {
+    setScanOpen(false);
+    if (data) {
+      setCurrentAnalysis(data);
+      setActiveProofId(data.id);
     }
     setCurrentView('analysis');
   };
@@ -271,6 +303,8 @@ function RootAppContent() {
           onBackToDashboard={() => setCurrentView('dashboard')}
           onLogout={logout}
           activeProofId={activeProofId}
+          analysis={currentAnalysis}
+          onUpdateAnalysis={setCurrentAnalysis}
           onOpenTypst={() => typstSheetRef.current?.present()}
           onOpenTheorem={() => theoremSheetRef.current?.present()}
           onOpenHistory={() => historySheetRef.current?.present()}
@@ -280,8 +314,14 @@ function RootAppContent() {
       )}
 
       {/* Shared Sheets & Overlays */}
-      <TypstSheet ref={typstSheetRef} />
-      <TheoremSheet ref={theoremSheetRef} />
+      <TypstSheet
+        ref={typstSheetRef}
+        typstSource={currentAnalysis?.typstSource}
+      />
+      <TheoremSheet
+        ref={theoremSheetRef}
+        theorems={currentAnalysis?.relevantTheorems}
+      />
       <HistorySheet
         ref={historySheetRef}
         onSelectProof={handleSelectProof}
@@ -297,10 +337,7 @@ function RootAppContent() {
       <ScanOverlay
         visible={scanOpen}
         onClose={() => setScanOpen(false)}
-        onScanComplete={() => {
-          setScanOpen(false);
-          setCurrentView('analysis');
-        }}
+        onScanComplete={handleScanComplete}
       />
     </View>
   );
@@ -328,40 +365,40 @@ export default function AnalysisScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <SafeAreaProvider>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={styles.root}>
         <BottomSheetModalProvider>
-          <StatusBar style="light" />
           <AuthProvider>
             <RootAppContent />
           </AuthProvider>
+          <StatusBar style="light" />
         </BottomSheetModalProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: C.background,
   },
   screenContainer: {
     flex: 1,
     backgroundColor: C.background,
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: C.slateDeep,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   scrollView: {
     flex: 1,
-    backgroundColor: C.background,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 288, // so floating card never covers content
+    paddingBottom: 288,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: C.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
