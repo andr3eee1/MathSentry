@@ -195,7 +195,9 @@ export async function verifyProofWithLora(
   if (!apiUrl) return null;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+  // LORA_TIMEOUT_MS: how long to wait for the Colab GPU before falling back to Gemini
+  const timeoutMs = parseInt(process.env.LORA_TIMEOUT_MS || '', 10) || 20000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const payload = {

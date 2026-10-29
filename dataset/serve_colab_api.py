@@ -182,15 +182,8 @@ def audit_proof(req: AuditRequest):
 
     except Exception as e:
         print(f"[Error in audit_proof]: {e}")
-        # Always return safe fallback JSON instead of crashing with HTTP 500
-        return {
-            "status": "flaw",
-            "fatal_flaw_step": 3,
-            "cascading_invalidated_steps": [4],
-            "final_score_percentage": 40.0,
-            "onm_7p_score": 2.8,
-            "teacher_critique_ro": "Audit deductiv efectuat de modelul MathSentry LoRA. A fost identificată o fractură deductivă la Pasul 3.",
-        }
+        # Never invent a grade: a 500 makes the backend fall back to Gemini
+        raise HTTPException(status_code=500, detail="Inference failed")
 
 def start_cloudflare_tunnel(port: int = 8000):
     """Starts Cloudflare Tunnel without needing any signup or token."""
@@ -226,6 +219,20 @@ def start_cloudflare_tunnel(port: int = 8000):
         print("👉 In MathSentry backend/.env set:")
         print(f"   LORA_API_URL={public_url}")
         print("=" * 70 + "\n")
+        # Optional: report the URL to whoever launched this (e.g. a helper on the dev laptop)
+        register_url = os.environ.get("MATHSENTRY_REGISTER_URL")
+        if register_url:
+            try:
+                import urllib.request
+                req = urllib.request.Request(
+                    register_url,
+                    data=json.dumps({"url": public_url}).encode(),
+                    headers={"Content-Type": "application/json"},
+                )
+                urllib.request.urlopen(req, timeout=10)
+                print("📡 URL reported to the MathSentry backend host.")
+            except Exception as e:
+                print(f"⚠️ Could not report URL automatically: {e}")
     return public_url
 
 if __name__ == "__main__":

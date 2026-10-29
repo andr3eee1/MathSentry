@@ -25,7 +25,7 @@ import {
   ArrowRight,
   Check,
 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/components/Haptics';
 import { C, F } from '@/theme';
 import { useAuth } from '@/context/AuthContext';
 import { showToast } from '@/components/ToastHelper';

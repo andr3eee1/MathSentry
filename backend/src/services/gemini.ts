@@ -7,14 +7,20 @@ import { ASTNodeBreak, OlympiadAnalysisResult, StepEvaluation } from '../types/o
  */
 export const MAX_MODEL_ATTEMPTS = 3;
 
-export const CANDIDATE_MODELS = [
-  'gemini-flash-latest',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.8-flash',
-  'gemini-2.5-flash',
-  'gemini-1.5-flash',
-];
+// Per-model deadline so an overloaded model fails over instead of hanging. Overloaded
+// models usually reject within seconds (503); a healthy flash-lite answer can take ~30s.
+export const MODEL_TIMEOUT_MS = parseInt(process.env.GEMINI_TIMEOUT_MS || '', 10) || 45000;
+
+// Override with GEMINI_MODELS=model-a,model-b when a model is overloaded or retired.
+// flash-lite leads because the full flash models often return 503 "high demand".
+export const CANDIDATE_MODELS = process.env.GEMINI_MODELS
+  ? process.env.GEMINI_MODELS.split(',').map((m) => m.trim()).filter(Boolean)
+  : [
+      'gemini-3.5-flash-lite',
+      'gemini-flash-latest',
+      'gemini-3.5-flash',
+      'gemini-2.5-flash',
+    ];
 
 /**
  * MathSentry Master Olympiad Prompt
@@ -288,7 +294,7 @@ DEMONSTRAȚIE>>>
             temperature: 0.1,
             responseMimeType: 'application/json',
           },
-        });
+        }, { timeout: MODEL_TIMEOUT_MS });
 
         if (options.imageBase64) {
           const cleanBase64 = options.imageBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -525,7 +531,7 @@ Răspunde STRICT în format JSON:
           temperature: 0.1,
           responseMimeType: 'application/json',
         },
-      });
+      }, { timeout: MODEL_TIMEOUT_MS });
 
       const resp = await model.generateContent([
         prompt,

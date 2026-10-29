@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/components/Haptics';
 import { History, User as UserIcon, Camera } from 'lucide-react-native';
 import { C, F } from '@/theme';
 

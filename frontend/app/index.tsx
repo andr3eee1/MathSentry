@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/components/Haptics';
 
 import { C, F } from '@/theme';
 import { BookOpen, RefreshCw, Loader2, Info } from 'lucide-react-native';

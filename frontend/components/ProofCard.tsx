@@ -15,7 +15,7 @@ import Animated, {
   FadeOut,
   LinearTransition,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/components/Haptics';
 import {
   Check,
   AlertTriangle,
