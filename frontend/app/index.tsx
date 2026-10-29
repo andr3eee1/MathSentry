@@ -21,6 +21,7 @@ import { TheoremSheet } from '@/components/sheets/TheoremSheet';
 import { HistorySheet } from '@/components/sheets/HistorySheet';
 import { ProfileSheet } from '@/components/sheets/ProfileSheet';
 import { AuthSheet } from '@/components/sheets/AuthSheet';
+import { ProSheet } from '@/components/sheets/ProSheet';
 import { AuthScreen } from '@/components/AuthScreen';
 import { DashboardScreen } from '@/components/DashboardScreen';
 import { BottomNav } from '@/components/BottomNav';
@@ -219,7 +220,7 @@ function MainAnalysisScreen({
 }
 
 function RootAppContent() {
-  const { user, isLoading, refreshStats } = useAuth();
+  const { user, isLoading, isGuest, refreshStats } = useAuth();
   const [currentView, setCurrentView] = useState<'dashboard' | 'analysis'>('dashboard');
   const [currentAnalysis, setCurrentAnalysis] = useState<OlympiadAnalysisResult | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -237,6 +238,19 @@ function RootAppContent() {
   const [targetProblem, setTargetProblem] = useState<UserProblem | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [proOpen, setProOpen] = useState(false);
+
+  const handleRequireAccountForPro = () => {
+    setProOpen(false);
+    // Let the Pro modal finish dismissing before presenting the next one (iOS)
+    setTimeout(() => setAuthModalOpen(true), 350);
+  };
+
+  // Guests are asked to sign up; signed-in free users are offered Pro
+  const handleQuotaExceeded = () => {
+    if (isGuest) setAuthModalOpen(true);
+    else setProOpen(true);
+  };
 
   // Never carry one account's open analysis over to the next account
   useEffect(() => {
@@ -309,7 +323,7 @@ function RootAppContent() {
           onOpenTypst={() => typstSheetRef.current?.present()}
           onOpenTheorem={() => theoremSheetRef.current?.present()}
           onAuditFinished={handleAuditFinished}
-          onRequestSignup={() => setAuthModalOpen(true)}
+          onRequestSignup={handleQuotaExceeded}
         />
       ) : (
         <>
@@ -320,6 +334,7 @@ function RootAppContent() {
             onOpenHistory={() => historySheetRef.current?.present()}
             onOpenProfile={() => profileSheetRef.current?.present()}
             onOpenAuth={() => setAuthModalOpen(true)}
+            onOpenPro={() => setProOpen(true)}
             refreshTrigger={refreshTrigger}
           />
           <BottomNav
@@ -347,6 +362,19 @@ function RootAppContent() {
       <ProfileSheet
         ref={profileSheetRef}
         onOpenAuth={() => setAuthModalOpen(true)}
+        onOpenPro={() => {
+          if (isGuest) {
+            showToast('Creează un cont gratuit, apoi treci la Pro.', 'none');
+            setAuthModalOpen(true);
+          } else {
+            setProOpen(true);
+          }
+        }}
+      />
+      <ProSheet
+        visible={proOpen}
+        onClose={() => setProOpen(false)}
+        onRequireAccount={handleRequireAccountForPro}
       />
       <AuthSheet
         visible={authModalOpen}
@@ -360,7 +388,7 @@ function RootAppContent() {
         targetProblem={targetProblem}
         onScanComplete={handleScanComplete}
         onProblemCreated={handleProblemCreated}
-        onQuotaExceeded={() => setAuthModalOpen(true)}
+        onQuotaExceeded={handleQuotaExceeded}
       />
     </View>
   );

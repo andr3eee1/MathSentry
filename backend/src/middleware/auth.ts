@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db, EXAMPLES_USER_ID } from '../db';
+import { isProRow } from '../services/billing';
 
 const DEV_JWT_SECRET = 'mathsentry_dev_only_secret';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -15,10 +16,11 @@ export const JWT_SECRET = process.env.JWT_SECRET || DEV_JWT_SECRET;
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   isGuest?: boolean;
+  isPro?: boolean;
 }
 
 /** Resolves the bearer token to an existing user, or null. */
-function resolveUser(req: Request): { id: string; isGuest: boolean } | null {
+function resolveUser(req: Request): { id: string; isGuest: boolean; isPro: boolean } | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
 
@@ -26,10 +28,10 @@ function resolveUser(req: Request): { id: string; isGuest: boolean } | null {
     const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET, { algorithms: ['HS256'] }) as { userId: string };
     // The public examples account must never act as a session, even with a forged token
     if (decoded.userId === EXAMPLES_USER_ID) return null;
-    const user = db.prepare('SELECT id, is_guest FROM users WHERE id = ?').get(decoded.userId) as
-      | { id: string; is_guest: number }
+    const user = db.prepare('SELECT id, is_guest, plan, pro_until FROM users WHERE id = ?').get(decoded.userId) as
+      | { id: string; is_guest: number; plan: string; pro_until: string | null }
       | undefined;
-    return user ? { id: user.id, isGuest: Boolean(user.is_guest) } : null;
+    return user ? { id: user.id, isGuest: Boolean(user.is_guest), isPro: isProRow(user) } : null;
   } catch {
     return null;
   }
@@ -43,6 +45,7 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   }
   req.userId = user.id;
   req.isGuest = user.isGuest;
+  req.isPro = user.isPro;
   next();
 }
 
@@ -51,6 +54,8 @@ export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response,
   if (user) {
     req.userId = user.id;
     req.isGuest = user.isGuest;
+    req.isPro = user.isPro;
+  req.isPro = user.isPro;
   }
   next();
 }

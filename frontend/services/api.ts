@@ -19,6 +19,8 @@ export interface User {
   rank: string;
   streak: number;
   isGuest?: boolean;
+  plan?: 'free' | 'pro';
+  proUntil?: string | null;
 }
 
 export interface UserStats {
@@ -40,6 +42,18 @@ export class ApiError extends Error {
 }
 
 const REQUEST_TIMEOUT_MS = 90000; // AI grading of a photographed proof can take a while
+
+export interface BillingConfig {
+  mode: 'stripe' | 'demo' | 'disabled';
+  priceBani: number;
+  currency: 'RON';
+  priceLabel: string;
+  periodDays: number;
+}
+
+export type CheckoutSession =
+  | { mode: 'stripe'; url: string; sessionId: string }
+  | { mode: 'demo'; sessionId: string };
 
 export interface HistoryItem {
   id: string;
@@ -114,6 +128,9 @@ class ApiService {
 
       const data = await response.json().catch(() => null);
       if (!response.ok) {
+        if (__DEV__) {
+          console.warn(`[api] ${options.method || 'GET'} ${baseUrl}${endpoint} -> ${response.status}`, data);
+        }
         if (response.status === 401 && this.token && !endpoint.startsWith('/auth/login')) {
           this.onUnauthorized?.();
         }
@@ -130,6 +147,7 @@ class ApiService {
       return await send(API_BASE_URL);
     } catch (err: any) {
       if (err instanceof ApiError) throw err;
+      if (__DEV__) console.warn(`[api] ${options.method || 'GET'} ${API_BASE_URL}${endpoint} failed:`, err?.message);
       // Android emulator: 10.0.2.2 can fail when using `adb reverse`; retry on localhost
       if (Platform.OS === 'android' && !process.env.EXPO_PUBLIC_API_URL) {
         try {
@@ -176,6 +194,25 @@ class ApiService {
 
   async logout(): Promise<void> {
     this.setToken(null);
+  }
+
+  // --- Billing APIs ---
+  async getBillingConfig(): Promise<BillingConfig> {
+    return this.request<BillingConfig>('/billing/config');
+  }
+
+  async startCheckout(): Promise<CheckoutSession> {
+    return this.request<CheckoutSession>('/billing/checkout', { method: 'POST' });
+  }
+
+  async confirmCheckout(
+    sessionId: string,
+    card?: string
+  ): Promise<{ plan: 'pro'; proUntil: string }> {
+    return this.request<{ plan: 'pro'; proUntil: string }>('/billing/confirm', {
+      method: 'POST',
+      body: JSON.stringify(card ? { sessionId, card } : { sessionId }),
+    });
   }
 
   // --- Proof & Olympiad Engine APIs ---

@@ -5,7 +5,8 @@ import { randomBytes } from 'crypto';
 import { db } from '../db';
 import { JWT_SECRET, AuthenticatedRequest } from '../middleware/auth';
 import { newId } from '../services/analysisStore';
-import { dailyLimitFor, usedToday } from '../services/quota';
+import { dailyLimitFor, tierOf, usedToday } from '../services/quota';
+import { isProRow } from '../services/billing';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -21,6 +22,8 @@ function publicUser(row: any) {
     rank: row.rank,
     streak: row.streak,
     isGuest: Boolean(row.is_guest),
+    plan: isProRow(row) ? 'pro' : 'free',
+    proUntil: isProRow(row) ? row.pro_until : null,
   };
 }
 
@@ -166,7 +169,7 @@ export const getMe = (req: AuthenticatedRequest, res: Response): void => {
   `).get(userId) as { total: number; sound: number | null; avgOnm: number | null };
 
   const total = agg.total || 0;
-  const limit = dailyLimitFor(Boolean(user.is_guest));
+  const limit = dailyLimitFor(tierOf(Boolean(user.is_guest), isProRow(user)));
 
   res.json({
     user: publicUser(user),

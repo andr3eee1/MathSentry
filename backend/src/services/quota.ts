@@ -3,6 +3,7 @@ import { db } from '../db';
 
 const DEFAULT_DAILY_LIMIT = 20;
 const DEFAULT_GUEST_DAILY_LIMIT = 5;
+const DEFAULT_PRO_DAILY_LIMIT = 200;
 const DEFAULT_GLOBAL_DAILY_LIMIT = 2000;
 
 function envInt(name: string, fallback: number): number {
@@ -10,10 +11,16 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function dailyLimitFor(isGuest: boolean): number {
-  return isGuest
-    ? envInt('GUEST_DAILY_ANALYSIS_LIMIT', DEFAULT_GUEST_DAILY_LIMIT)
-    : envInt('DAILY_ANALYSIS_LIMIT', DEFAULT_DAILY_LIMIT);
+export type UserTier = 'guest' | 'free' | 'pro';
+
+export function tierOf(isGuest: boolean, isPro: boolean): UserTier {
+  return isGuest ? 'guest' : isPro ? 'pro' : 'free';
+}
+
+export function dailyLimitFor(tier: UserTier): number {
+  if (tier === 'guest') return envInt('GUEST_DAILY_ANALYSIS_LIMIT', DEFAULT_GUEST_DAILY_LIMIT);
+  if (tier === 'pro') return envInt('PRO_DAILY_ANALYSIS_LIMIT', DEFAULT_PRO_DAILY_LIMIT);
+  return envInt('DAILY_ANALYSIS_LIMIT', DEFAULT_DAILY_LIMIT);
 }
 
 function startOfUtcDay(): string {
@@ -38,7 +45,7 @@ const GLOBAL_LIMIT_MESSAGE = 'Serviciul este foarte solicitat azi. Încearcă di
  * event. better-sqlite3 is synchronous, so the transaction cannot interleave
  * with other requests. Call releaseQuota() if the audit did not consume AI.
  */
-export function reserveQuota(userId: string, isGuest: boolean, kind: string): Reservation {
+export function reserveQuota(userId: string, isGuest: boolean, kind: string, isPro = false): Reservation {
   return db.transaction((): Reservation => {
     const start = startOfUtcDay();
     const globalRow = db
@@ -48,7 +55,7 @@ export function reserveQuota(userId: string, isGuest: boolean, kind: string): Re
       return { error: GLOBAL_LIMIT_MESSAGE, code: 'ENGINE_UNAVAILABLE' };
     }
 
-    const limit = dailyLimitFor(isGuest);
+    const limit = dailyLimitFor(tierOf(isGuest, isPro));
     if (usedToday(userId) >= limit) {
       return {
         error: isGuest

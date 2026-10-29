@@ -399,6 +399,77 @@ test('quota: offline engine releases its reservation', async () => {
   assert.equal(after, before);
 });
 
+test('billing: config in demo mode, return page is HTML', async () => {
+  const r = await call('GET', '/billing/config');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json, { mode: 'demo', priceBani: 1999, currency: 'RON', priceLabel: '19,99 lei / lună', periodDays: 30 });
+  for (const q of ['success&session_id=cs_x', 'cancel']) {
+    const res = await fetch(`${API}/billing/return?status=${q}`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/html/);
+    assert.match(await res.text(), /MathSentry/);
+  }
+});
+
+test('billing: guest checkout 403, unauthenticated 401', async () => {
+  assert.equal((await call('POST', '/billing/checkout')).status, 401);
+  const g = await call('POST', '/auth/guest');
+  const r = await call('POST', '/billing/checkout', { token: g.json.token });
+  assert.equal(r.status, 403);
+  assert.equal(r.json.code, 'ACCOUNT_REQUIRED');
+});
+
+test('billing: demo checkout, declined card, pro grant, idempotency, ownership', async () => {
+  const a = await registerUser('payer');
+  const b = await registerUser('thief');
+  const me0 = (await call('GET', '/auth/me', { token: a.token })).json;
+  assert.equal(me0.user.plan, 'free');
+  assert.equal(me0.user.proUntil, null);
+  assert.equal(me0.stats.dailyLimit, 20);
+
+  const co = await call('POST', '/billing/checkout', { token: a.token });
+  assert.equal(co.status, 200);
+  assert.equal(co.json.mode, 'demo');
+  assert.match(co.json.sessionId, /^demo_/);
+  const sessionId = co.json.sessionId;
+
+  const bad = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId, card: '4000 0000 0000 0002' } });
+  assert.equal(bad.status, 402);
+  assert.equal(bad.json.code, 'CARD_DECLINED');
+  const none = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId } });
+  assert.equal(none.status, 402);
+
+  const stolen = await call('POST', '/billing/confirm', { token: b.token, body: { sessionId, card: '4242 4242 4242 4242' } });
+  assert.equal(stolen.status, 404);
+  assert.equal((await call('GET', '/auth/me', { token: b.token })).json.user.plan, 'free');
+
+  const ok = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId, card: '4242 4242 4242 4242' } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(ok.json.plan, 'pro');
+  const days = (new Date(ok.json.proUntil).getTime() - Date.now()) / 86400000;
+  assert.ok(days > 29.9 && days <= 30.01, `days=${days}`);
+
+  const again = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId, card: '4242424242424242' } });
+  assert.equal(again.status, 200);
+  assert.equal(again.json.proUntil, ok.json.proUntil);
+
+  const me = (await call('GET', '/auth/me', { token: a.token })).json;
+  assert.equal(me.user.plan, 'pro');
+  assert.equal(me.user.proUntil, ok.json.proUntil);
+  assert.equal(me.stats.dailyLimit, 200);
+
+  // A second purchase extends from the current expiry
+  const co2 = await call('POST', '/billing/checkout', { token: a.token });
+  const ext = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId: co2.json.sessionId, card: '4242424242424242' } });
+  const extDays = (new Date(ext.json.proUntil).getTime() - new Date(ok.json.proUntil).getTime()) / 86400000;
+  assert.ok(Math.abs(extDays - 30) < 0.01, `extDays=${extDays}`);
+
+  const unknown = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId: 'demo_nope', card: '4242424242424242' } });
+  assert.equal(unknown.status, 404);
+  const stripeId = await call('POST', '/billing/confirm', { token: a.token, body: { sessionId: 'cs_test_x' } });
+  assert.equal(stripeId.status, 400);
+});
+
 // Keep last: consumes the per-IP /auth/guest bucket (10 per hour).
 test('rate limit: /auth/guest allows 10 per hour per IP then 429', async () => {
   const statuses = [];

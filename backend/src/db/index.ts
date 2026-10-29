@@ -93,6 +93,8 @@ export function initDatabase(): void {
   `);
 
   addColumnIfMissing('users', 'is_guest', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing('users', 'plan', "TEXT NOT NULL DEFAULT 'free'");
+  addColumnIfMissing('users', 'pro_until', 'TEXT');
   addColumnIfMissing('proof_analyses', 'proof_text', 'TEXT');
   addColumnIfMissing('proof_analyses', 'engine', 'TEXT');
 
@@ -107,6 +109,21 @@ export function initDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_usage_user_time ON usage_events (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_usage_time ON usage_events (created_at);
     CREATE INDEX IF NOT EXISTS idx_analyses_user_time ON proof_analyses (user_id, created_at);
+  `);
+
+  // 5. Payments (Stripe Checkout sessions and demo sessions)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      external_id TEXT UNIQUE,
+      amount_bani INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_payments_user ON payments (user_id);
   `);
 
   seedExampleAnalyses();

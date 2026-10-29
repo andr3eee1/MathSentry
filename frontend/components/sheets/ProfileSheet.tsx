@@ -6,7 +6,7 @@ import {
   BottomSheetBackdropProps,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
-import { X, LogOut, LogIn } from 'lucide-react-native';
+import { X, LogOut, LogIn, Sparkles } from 'lucide-react-native';
 import { C, F } from '@/theme';
 import { useAuth } from '@/context/AuthContext';
 import { showToast } from '@/components/ToastHelper';
@@ -14,10 +14,11 @@ import { showToast } from '@/components/ToastHelper';
 interface ProfileSheetProps {
   onClose?: () => void;
   onOpenAuth?: () => void;
+  onOpenPro?: () => void;
 }
 
 export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
-  ({ onClose, onOpenAuth }, ref) => {
+  ({ onClose, onOpenAuth, onOpenPro }, ref) => {
     const snapPoints = useMemo(() => ['80%'], []);
     const { user, stats, isGuest, logout } = useAuth();
 
@@ -46,6 +47,21 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
       onClose?.();
       onOpenAuth?.();
     };
+
+    const handleOpenPro = () => {
+      (ref as any)?.current?.dismiss();
+      onClose?.();
+      onOpenPro?.();
+    };
+
+    const isPro = user?.plan === 'pro';
+    const proUntilLabel = user?.proUntil
+      ? new Date(user.proUntil).toLocaleDateString('ro-RO', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : null;
 
     return (
       <BottomSheetModal
@@ -78,6 +94,11 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
           <Text style={styles.candidateTitle}>
             {isGuest ? 'Sesiune fără cont' : user?.username || 'Candidat Olimpic'}
           </Text>
+          <View style={[styles.planBadge, isPro && styles.planBadgePro]}>
+            <Text style={[styles.planBadgeText, isPro && styles.planBadgeTextPro]}>
+              {isPro ? 'PRO' : 'GRATUIT'}
+            </Text>
+          </View>
           <Text style={styles.candidateEmail}>
             {isGuest
               ? 'Creează un cont gratuit ca să-ți păstrezi analizele pe orice telefon.'
@@ -116,12 +137,31 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
               Limita zilnică se resetează la miezul nopții (UTC).
               {isGuest ? ' Cu un cont gratuit primești mai multe audituri pe zi.' : ''}
             </Text>
+            {isPro && proUntilLabel && (
+              <Text style={[styles.specDesc, { color: C.success, marginTop: 4 }]}>
+                Pro activ până la {proUntilLabel}
+              </Text>
+            )}
           </View>
 
           {/* Auth Action Button */}
           <View style={styles.actionContainer}>
+            {!isPro && (
+              <Pressable
+                onPress={handleOpenPro}
+                style={({ pressed }) => [
+                  styles.proButton,
+                  { marginBottom: 10 },
+                  pressed && { opacity: 0.88 },
+                ]}
+                accessibilityRole="button"
+              >
+                <Sparkles size={15} color={C.primaryFg} strokeWidth={2} />
+                <Text style={styles.loginText}>Treci la Pro</Text>
+              </Pressable>
+            )}
             {isGuest && (
-              <Pressable onPress={handleOpenAuth} style={styles.loginButton}>
+              <Pressable onPress={handleOpenAuth} style={[styles.loginButton, { backgroundColor: C.slateDeep }]}>
                 <LogIn size={15} color={C.primaryFg} strokeWidth={2} />
                 <Text style={styles.loginText}>Creează cont gratuit</Text>
               </Pressable>
@@ -255,6 +295,37 @@ const styles = StyleSheet.create({
     fontFamily: F.uiSemi,
     fontSize: 13,
     color: C.primaryFg,
+  },
+  planBadge: {
+    marginTop: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.muted,
+  },
+  planBadgePro: {
+    backgroundColor: C.successSoft,
+    borderColor: 'rgba(22, 101, 52, 0.3)',
+  },
+  planBadgeText: {
+    fontFamily: F.monoMed,
+    fontSize: 10,
+    letterSpacing: 0.7,
+    color: C.mutedFg,
+  },
+  planBadgeTextPro: {
+    color: C.success,
+  },
+  proButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: C.primary,
   },
   specCard: {
     marginTop: 16,

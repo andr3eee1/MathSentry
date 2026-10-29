@@ -158,7 +158,7 @@ export const analyzeProof = async (req: AuthenticatedRequest, res: Response): Pr
     : undefined;
   const targetId = owned ? owned.id : newId('analysis');
 
-  const reservation = reserveQuota(userId, Boolean(req.isGuest), 'analyze');
+  const reservation = reserveQuota(userId, Boolean(req.isGuest), 'analyze', Boolean(req.isPro));
   if ('error' in reservation) {
     sendReservationError(res, reservation);
     return;

@@ -38,6 +38,7 @@ interface DashboardScreenProps {
   onOpenHistory: () => void;
   onOpenProfile: () => void;
   onOpenAuth: () => void;
+  onOpenPro: () => void;
   refreshTrigger?: number;
 }
 
@@ -76,6 +77,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenHistory,
   onOpenProfile,
   onOpenAuth,
+  onOpenPro,
   refreshTrigger = 0,
 }) => {
   const insets = useSafeAreaInsets();
@@ -158,7 +160,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Text style={styles.monogramSymbol}>∑</Text>
           </View>
           <View>
-            <Text style={styles.brandTitle}>MathSentry</Text>
+            <View style={styles.brandRow}>
+              <Text style={styles.brandTitle}>MathSentry</Text>
+              {user?.plan === 'pro' && (
+                <View style={styles.proChip}>
+                  <Text style={styles.proChipText}>PRO</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.brandSubtitle}>
               CAIET DE AUDIT DEDUCTIV · ONM
             </Text>
@@ -247,6 +256,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Text style={styles.guestBannerText}>
                   Creează un cont gratuit ca să nu pierzi analizele și să primești
                   mai multe audituri pe zi.
+                </Text>
+              </View>
+              <ChevronRight size={16} color={C.primary} />
+            </Pressable>
+          )}
+
+          {!isGuest && user?.plan !== 'pro' && stats && stats.auditsLeftToday <= 5 && (
+            <Pressable
+              onPress={onOpenPro}
+              style={({ pressed }) => [styles.guestBanner, pressed && { opacity: 0.85 }]}
+              accessibilityRole="button"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.guestBannerTitle}>Ai nevoie de mai multe audituri?</Text>
+                <Text style={styles.guestBannerText}>
+                  Treci la Pro și primești o limită zilnică mai mare.
                 </Text>
               </View>
               <ChevronRight size={16} color={C.primary} />
@@ -672,6 +697,25 @@ const styles = StyleSheet.create({
     fontFamily: F.mathMed,
     fontSize: 18,
     color: C.primaryFg,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  proChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: C.successSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 101, 52, 0.3)',
+  },
+  proChipText: {
+    fontFamily: F.monoMed,
+    fontSize: 9.5,
+    letterSpacing: 0.6,
+    color: C.success,
   },
   brandTitle: {
     fontFamily: F.mathMed,

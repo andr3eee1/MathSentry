@@ -14,6 +14,7 @@ import {
   submitProblemSolution,
   deleteProblem,
 } from '../controllers/problems';
+import { getBillingConfig, createCheckout, confirmPayment, billingReturn } from '../controllers/billing';
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -24,6 +25,7 @@ const router = Router();
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
 const guestLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
+const billingLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 
 // Base64 phone photos are ~1.33x the JPEG size. Only authenticated photo routes
 // get the big parser (the global parser stops at 100kb).
@@ -34,6 +36,12 @@ router.post('/auth/register', registerLimiter, optionalAuthMiddleware, register)
 router.post('/auth/login', loginLimiter, login);
 router.post('/auth/guest', guestLimiter, createGuest);
 router.get('/auth/me', authMiddleware, getMe);
+
+// Billing (Pro plan). /billing/return only shows a page; it never grants anything.
+router.get('/billing/config', getBillingConfig);
+router.post('/billing/checkout', billingLimiter, authMiddleware, asyncHandler(createCheckout));
+router.post('/billing/confirm', billingLimiter, authMiddleware, asyncHandler(confirmPayment));
+router.get('/billing/return', billingReturn);
 
 // Proof & Olympiad Analysis routes
 router.post('/proof/analyze', authMiddleware, photoBody, asyncHandler(analyzeProof));

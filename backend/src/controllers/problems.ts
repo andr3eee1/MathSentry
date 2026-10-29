@@ -69,7 +69,7 @@ export const createProblem = async (req: AuthenticatedRequest, res: Response): P
   let finalEnunt = typeof enuntRo === 'string' ? enuntRo.trim() : '';
 
   if (imageBase64) {
-    const reservation = reserveQuota(userId, Boolean(req.isGuest), 'ocr');
+    const reservation = reserveQuota(userId, Boolean(req.isGuest), 'ocr', Boolean(req.isPro));
     if ('error' in reservation) {
       sendReservationError(res, reservation);
       return;
@@ -169,7 +169,7 @@ export const submitProblemSolution = async (req: AuthenticatedRequest, res: Resp
     return;
   }
 
-  const reservation = reserveQuota(userId, Boolean(req.isGuest), 'solution');
+  const reservation = reserveQuota(userId, Boolean(req.isGuest), 'solution', Boolean(req.isPro));
   if ('error' in reservation) {
     sendReservationError(res, reservation);
     return;
