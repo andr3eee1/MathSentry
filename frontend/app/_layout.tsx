@@ -49,7 +49,7 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.slateDeep, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: C.background, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={C.primary} />
       </View>
     );
@@ -59,7 +59,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <BottomSheetModalProvider>
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
           <AuthProvider>
             <Slot />
             <Toaster

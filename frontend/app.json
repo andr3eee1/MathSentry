@@ -1,22 +1,27 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "MathSentry",
+    "slug": "mathsentry",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "mathsentry",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSCameraUsageDescription": "MathSentry folosește camera telefonului pentru a fotografia direct problemele și rezolvările scrise de mână pe foaie.",
+        "NSPhotoLibraryUsageDescription": "MathSentry accesează galeria pentru selectarea foilor de concurs fotografiate."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F7F4EE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": ["android.permission.CAMERA"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -26,9 +31,21 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite accesul la cameră pentru a fotografia direct problema sau demonstrația scrisă de mână pe foaie."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite accesul la fotografii pentru analiza foilor de concurs."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F7F4EE",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }

@@ -168,7 +168,7 @@ export const FloatingHintCard: React.FC<FloatingHintCardProps> = ({
                       <Loader2 size={14} color="#FFFFFF" strokeWidth={2} />
                     </Animated.View>
                   ) : (
-                    <Text style={styles.buttonReAnalyzeText}>Re-Analizează cu Gemini</Text>
+                    <Text style={styles.buttonReAnalyzeText}>Re-Analizează cu Motorul Formal</Text>
                   )}
                 </Pressable>
 

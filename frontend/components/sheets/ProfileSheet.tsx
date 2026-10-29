@@ -6,7 +6,7 @@ import {
   BottomSheetBackdropProps,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
-import { Award, X, LogOut, LogIn } from 'lucide-react-native';
+import { X, LogOut, LogIn } from 'lucide-react-native';
 import { C, F } from '@/theme';
 import { useAuth } from '@/context/AuthContext';
 import { showToast } from '@/components/ToastHelper';
@@ -18,8 +18,8 @@ interface ProfileSheetProps {
 
 export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
   ({ onClose, onOpenAuth }, ref) => {
-    const snapPoints = useMemo(() => ['85%'], []);
-    const { user, stats, logout } = useAuth();
+    const snapPoints = useMemo(() => ['80%'], []);
+    const { user, stats, isGuest, logout } = useAuth();
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -36,7 +36,7 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
 
     const handleLogout = async () => {
       await logout();
-      showToast('Ai fost deconectat.', 'done');
+      showToast('Sesiune închisă.', 'done');
       (ref as any)?.current?.dismiss();
       onClose?.();
     };
@@ -57,7 +57,6 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
         backgroundStyle={styles.sheetBackground}
       >
         <BottomSheetView style={styles.container}>
-          {/* Close button at top right 16 */}
           <Pressable
             onPress={() => {
               (ref as any)?.current?.dismiss();
@@ -65,70 +64,74 @@ export const ProfileSheet = forwardRef<BottomSheetModal, ProfileSheetProps>(
             }}
             hitSlop={8}
             style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Închide"
           >
-            <X size={20} color={C.mutedFg} strokeWidth={2} />
+            <X size={18} color={C.mutedFg} strokeWidth={2} />
           </Pressable>
 
-          {/* Centered Avatar Icon */}
-          <View style={styles.avatarCircle}>
-            <Award size={28} color={C.primary} strokeWidth={2} />
+          {/* Monogram Badge */}
+          <View style={styles.monogramCircle}>
+            <Text style={styles.monogramLetter}>∑</Text>
           </View>
 
           <Text style={styles.candidateTitle}>
-            {user ? user.username : 'Olympiad Candidate'}
+            {isGuest ? 'Sesiune fără cont' : user?.username || 'Candidat Olimpic'}
           </Text>
           <Text style={styles.candidateEmail}>
-            {user ? user.email : 'Autentifică-te pentru sincronizarea baremelor'}
+            {isGuest
+              ? 'Creează un cont gratuit ca să-ți păstrezi analizele pe orice telefon.'
+              : user?.email}
           </Text>
 
-          {/* 3-col Grid */}
+          {/* 3-col Tabular Ledger */}
           <View style={styles.statsGrid}>
             <View style={styles.statTile}>
-              <Text style={styles.statValue}>
-                {stats?.totalProofs ?? 24}
-              </Text>
-              <Text style={styles.statLabel}>Proofs</Text>
+              <Text style={styles.statValue}>{stats?.totalProofs ?? '—'}</Text>
+              <Text style={styles.statLabel}>DEMONSTRAȚII</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statValue}>
-                {stats?.soundPercentage ?? 81}%
+              <Text style={[styles.statValue, { color: C.success }]}>
+                {stats && stats.totalProofs > 0 ? `${stats.soundPercentage}%` : '—'}
               </Text>
-              <Text style={styles.statLabel}>Sound</Text>
+              <Text style={styles.statLabel}>VALIDATE</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statValue}>
-                {stats?.streak ?? 7}
-              </Text>
-              <Text style={styles.statLabel}>Streak</Text>
+              <Text style={styles.statValue}>{stats ? `${stats.streak}z` : '—'}</Text>
+              <Text style={styles.statLabel}>ZILE LA RÂND</Text>
             </View>
           </View>
 
-          {/* Gemini AI Status Card */}
-          <View style={styles.aiStatusCard}>
-            <View style={styles.aiStatusHeader}>
-              <View style={styles.aiStatusDot} />
-              <Text style={styles.aiStatusTitle}>Motor AI: Gemini Flash (Free Tier)</Text>
+          {/* Engine Specification Card */}
+          <View style={styles.specCard}>
+            <View style={styles.specHeader}>
+              <View style={styles.specDot} />
+              <Text style={styles.specTitle}>
+                AUDITURI RĂMASE AZI: {stats ? `${stats.auditsLeftToday} / ${stats.dailyLimit}` : '—'}
+              </Text>
             </View>
-            <Text style={styles.aiStatusDesc}>
-              Analiză formală AST, verificare matematică în cascadă și suport multimodal pentru scris de mână activat.
+            <Text style={styles.specDesc}>
+              Limita zilnică se resetează la miezul nopții (UTC).
+              {isGuest ? ' Cu un cont gratuit primești mai multe audituri pe zi.' : ''}
             </Text>
           </View>
 
           {/* Auth Action Button */}
           <View style={styles.actionContainer}>
-            {user ? (
-              <Pressable onPress={handleLogout} style={styles.logoutButton}>
-                <LogOut size={16} color={C.flaw} strokeWidth={2} />
-                <Text style={styles.logoutText}>Deconectare cont</Text>
-              </Pressable>
-            ) : (
+            {isGuest && (
               <Pressable onPress={handleOpenAuth} style={styles.loginButton}>
-                <LogIn size={16} color="#FFFFFF" strokeWidth={2} />
-                <Text style={styles.loginText}>Autentificare / Înregistrare</Text>
+                <LogIn size={15} color={C.primaryFg} strokeWidth={2} />
+                <Text style={styles.loginText}>Creează cont gratuit</Text>
               </Pressable>
             )}
+            <Pressable onPress={handleLogout} style={[styles.logoutButton, isGuest && { marginTop: 10 }]}>
+              <LogOut size={15} color={C.flaw} strokeWidth={2} />
+              <Text style={styles.logoutText}>
+                {isGuest ? 'Ieși (analizele fără cont se pierd)' : 'Deconectare din cont'}
+              </Text>
+            </Pressable>
           </View>
         </BottomSheetView>
       </BottomSheetModal>
@@ -141,11 +144,13 @@ ProfileSheet.displayName = 'ProfileSheet';
 const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: C.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     backgroundColor: C.border,
   },
@@ -162,55 +167,63 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 4,
   },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: C.indigoSoft,
+  monogramCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: C.slateDeep,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 12,
+  },
+  monogramLetter: {
+    fontFamily: F.mathMed,
+    fontSize: 24,
+    color: C.primaryFg,
   },
   candidateTitle: {
-    fontFamily: F.uiSemi,
-    fontSize: 16,
+    fontFamily: F.mathMed,
+    fontSize: 19,
     color: C.foreground,
     marginTop: 12,
     textAlign: 'center',
   },
   candidateEmail: {
-    fontFamily: F.ui,
-    fontSize: 12,
+    fontFamily: F.mono,
+    fontSize: 11,
     color: C.mutedFg,
-    marginTop: 2,
+    marginTop: 3,
     textAlign: 'center',
   },
   statsGrid: {
-    marginTop: 16,
+    marginTop: 18,
     flexDirection: 'row',
     gap: 8,
     width: '100%',
   },
   statTile: {
     flex: 1,
-    backgroundColor: C.muted,
-    borderRadius: 12,
+    backgroundColor: C.background,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: C.border,
     padding: 12,
     alignItems: 'center',
   },
   statValue: {
-    fontFamily: F.uiBold,
-    fontSize: 18,
+    fontFamily: F.monoMed,
+    fontSize: 17,
     color: C.foreground,
   },
   statLabel: {
-    fontFamily: F.ui,
-    fontSize: 11,
+    fontFamily: F.mono,
+    fontSize: 9,
     color: C.mutedFg,
-    marginTop: 2,
+    marginTop: 3,
+    letterSpacing: 0.5,
   },
   actionContainer: {
-    marginTop: 24,
+    marginTop: 20,
     width: '100%',
   },
   logoutButton: {
@@ -219,13 +232,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.2)',
+    borderColor: 'rgba(185, 28, 28, 0.25)',
     backgroundColor: C.flawSoft,
   },
   logoutText: {
-    fontFamily: F.uiMed,
+    fontFamily: F.uiSemi,
     fontSize: 13,
     color: C.flaw,
   },
@@ -235,45 +248,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: C.primary,
+    borderRadius: 6,
+    backgroundColor: C.slateDeep,
   },
   loginText: {
     fontFamily: F.uiSemi,
     fontSize: 13,
-    color: '#FFFFFF',
+    color: C.primaryFg,
   },
-  aiStatusCard: {
-    marginTop: 18,
+  specCard: {
+    marginTop: 16,
     width: '100%',
-    backgroundColor: 'rgba(91,82,242,0.06)',
-    borderRadius: 12,
+    backgroundColor: C.background,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(91,82,242,0.2)',
+    borderColor: C.border,
     padding: 12,
   },
-  aiStatusHeader: {
+  specHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
   },
-  aiStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  specDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: C.success,
   },
-  aiStatusTitle: {
-    fontSize: 12,
-    fontFamily: F.mono,
+  specTitle: {
+    fontSize: 10.5,
+    fontFamily: F.monoMed,
     color: C.primary,
-    fontWeight: '700',
   },
-  aiStatusDesc: {
+  specDesc: {
     fontSize: 11.5,
     fontFamily: F.ui,
     color: C.mutedFg,
-    lineHeight: 16,
+    lineHeight: 17,
   },
 });

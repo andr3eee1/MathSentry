@@ -10,33 +10,12 @@ import {
   BottomSheetModal,
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
-  BottomSheetView,
+  BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import * as Clipboard from 'expo-clipboard';
 import { FileCode, Copy, X } from 'lucide-react-native';
 import { C, F } from '@/theme';
 import { showToast } from '@/components/ToastHelper';
-
-export const TYPST_SOURCE = `#set page(paper: "a4", margin: 2cm)
-#set text(font: "New Computer Modern", size: 11pt)
-
-= Problem
-Prove that for all real $x != 0$,
-$(1 + x)^n >= 1 + n x$ for $n in NN$.
-
-= Proof
-*Base case.* For $n = 1$:
-$(1 + x)^1 = 1 + 1 dot x$. #h(1fr) $checkmark$
-
-*Inductive hypothesis.* Assume $P(k)$:
-$(1 + x)^k >= 1 + k x$.
-
-*Inductive step.* Multiply both sides by $(1 + x)$:
-$ (1 + x)^(k+1) >= (1 + k x)(1 + x)
-  = 1 + (k+1)x + k x^2 >= 1 + (k+1)x $
-
-*Conclusion.* By induction, $P(n)$ holds
-for all $n in NN$. $qed$`;
 
 interface TypstSheetProps {
   onClose?: () => void;
@@ -46,7 +25,7 @@ interface TypstSheetProps {
 export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
   ({ onClose, typstSource }, ref) => {
     const snapPoints = useMemo(() => ['85%'], []);
-    const activeSource = typstSource || TYPST_SOURCE;
+    const activeSource = typstSource || '';
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -62,27 +41,20 @@ export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
     );
 
     const handleCopy = async () => {
+      if (!activeSource) return;
       await Clipboard.setStringAsync(activeSource);
-      showToast('Typst code copied', 'done');
+      showToast('Codul sursă Typst a fost copiat.', 'done');
     };
 
-    // Syntax rendering:
-    // $…$ math → warn
-    // #keyword → primary
-    // *bold* → white bold
-    // lines starting = → success semibold
-    // "strings" → success
-    // rest white 80%
     const renderSyntaxLine = (line: string, index: number) => {
       if (line.startsWith('=')) {
         return (
-          <Text key={index} style={styles.lineSuccess}>
+          <Text key={index} style={styles.lineHeading}>
             {line}
           </Text>
         );
       }
 
-      // Tokenize the line into segments
       const regex = /(\$[^\$]+\$)|(#[a-zA-Z0-9_]+)|(\*[^\*]+\*)|("[^"]*")/g;
       const elements: React.ReactNode[] = [];
       let lastIndex = 0;
@@ -152,8 +124,10 @@ export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
         handleIndicatorStyle={styles.handle}
         backgroundStyle={styles.sheetBackground}
       >
-        <BottomSheetView style={styles.container}>
-          {/* Close button at top right 16 */}
+        <BottomSheetScrollView
+          style={styles.container}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           <Pressable
             onPress={() => {
               (ref as any)?.current?.dismiss();
@@ -161,34 +135,44 @@ export const TypstSheet = forwardRef<BottomSheetModal, TypstSheetProps>(
             }}
             hitSlop={8}
             style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Închide"
           >
-            <X size={20} color={C.mutedFg} strokeWidth={2} />
+            <X size={18} color={C.mutedFg} strokeWidth={2} />
           </Pressable>
 
-          {/* Title Row */}
           <View style={styles.titleRow}>
             <FileCode size={16} color={C.primary} strokeWidth={2} />
-            <Text style={styles.title}>proof.typ</Text>
+            <Text style={styles.title}>Manuscris Typst (proof.typ)</Text>
           </View>
           <Text style={styles.subtitle}>
-            Auto-generated Typst source from the AST.
+            Cod sursă generat automat din arborele deductiv AST pentru
+            tehnoredactare PDF.
           </Text>
 
-          {/* Code block */}
-          <View style={styles.codeBlock}>
-            <ScrollView horizontal showsHorizontalScrollIndicator>
-              <View>
-                {lines.map((line, idx) => renderSyntaxLine(line, idx))}
-              </View>
-            </ScrollView>
-          </View>
+          {activeSource ? (
+            <View style={styles.codeBlock}>
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View>
+                  {lines.map((line, idx) => renderSyntaxLine(line, idx))}
+                </View>
+              </ScrollView>
+            </View>
+          ) : (
+            <Text style={styles.subtitle}>
+              Nu există manuscris Typst pentru această analiză.
+            </Text>
+          )}
 
-          {/* Copy Button */}
-          <Pressable onPress={handleCopy} style={styles.copyButton}>
-            <Copy size={16} color="#FFFFFF" strokeWidth={2} />
-            <Text style={styles.copyButtonText}>Copy Typst Code</Text>
+          <Pressable
+            onPress={handleCopy}
+            disabled={!activeSource}
+            style={[styles.copyButton, !activeSource && { opacity: 0.5 }]}
+          >
+            <Copy size={15} color={C.primaryFg} strokeWidth={2} />
+            <Text style={styles.copyButtonText}>Copiază Sursa Typst</Text>
           </Pressable>
-        </BottomSheetView>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     );
   }
@@ -199,11 +183,13 @@ TypstSheet.displayName = 'TypstSheet';
 const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: C.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     backgroundColor: C.border,
   },
@@ -225,8 +211,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontFamily: F.uiSemi,
-    fontSize: 16,
+    fontFamily: F.mathMed,
+    fontSize: 18,
     color: C.foreground,
   },
   subtitle: {
@@ -238,58 +224,56 @@ const styles = StyleSheet.create({
   },
   codeBlock: {
     backgroundColor: C.slateDeep,
-    borderRadius: 12,
+    borderRadius: 6,
     padding: 16,
     flex: 1,
   },
   codeLine: {
     fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
+    fontSize: 11.5,
+    lineHeight: 19,
   },
   lineDefault: {
     fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11.5,
+    lineHeight: 19,
+    color: 'rgba(252, 251, 248, 0.85)',
   },
-  lineSuccess: {
-    fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
-    color: C.success,
-    fontWeight: '600',
+  lineHeading: {
+    fontFamily: F.monoMed,
+    fontSize: 11.5,
+    lineHeight: 19,
+    color: '#86EFAC',
   },
   tokenMath: {
     fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
-    color: C.warn,
+    fontSize: 11.5,
+    lineHeight: 19,
+    color: '#FDE68A',
   },
   tokenKeyword: {
     fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
-    color: C.primary,
+    fontSize: 11.5,
+    lineHeight: 19,
+    color: '#93C5FD',
   },
   tokenBold: {
-    fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
+    fontFamily: F.monoMed,
+    fontSize: 11.5,
+    lineHeight: 19,
     color: '#FFFFFF',
-    fontWeight: 'bold',
   },
   tokenString: {
     fontFamily: F.mono,
-    fontSize: 11,
-    lineHeight: 18,
-    color: C.success,
+    fontSize: 11.5,
+    lineHeight: 19,
+    color: '#86EFAC',
   },
   copyButton: {
     marginTop: 12,
     width: '100%',
-    backgroundColor: C.primary,
-    borderRadius: 12,
+    backgroundColor: C.slateDeep,
+    borderRadius: 6,
     paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -298,7 +282,7 @@ const styles = StyleSheet.create({
   },
   copyButtonText: {
     fontFamily: F.uiSemi,
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontSize: 13.5,
+    color: C.primaryFg,
   },
 });

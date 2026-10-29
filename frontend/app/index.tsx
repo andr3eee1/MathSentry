@@ -1,44 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
+  Text,
+  Pressable,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-import {
-  BottomSheetModalProvider,
-  BottomSheetModal,
-} from '@gorhom/bottom-sheet';
-import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
-import { useFonts } from 'expo-font';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
-import {
-  Newsreader_400Regular,
-  Newsreader_400Regular_Italic,
-  Newsreader_500Medium,
-} from '@expo-google-fonts/newsreader';
-import {
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
-} from '@expo-google-fonts/jetbrains-mono';
 
-import { C } from '@/theme';
+import { C, F } from '@/theme';
+import { BookOpen, RefreshCw, Loader2, Info } from 'lucide-react-native';
 import { Header } from '@/components/Header';
 import { PipelineStrip, Phase } from '@/components/PipelineStrip';
 import { ProofCard } from '@/components/ProofCard';
-import { FloatingHintCard } from '@/components/FloatingHintCard';
-import { BottomNav } from '@/components/BottomNav';
 import { TypstSheet } from '@/components/sheets/TypstSheet';
 import { TheoremSheet } from '@/components/sheets/TheoremSheet';
 import { HistorySheet } from '@/components/sheets/HistorySheet';
@@ -46,126 +23,112 @@ import { ProfileSheet } from '@/components/sheets/ProfileSheet';
 import { AuthSheet } from '@/components/sheets/AuthSheet';
 import { AuthScreen } from '@/components/AuthScreen';
 import { DashboardScreen } from '@/components/DashboardScreen';
+import { BottomNav } from '@/components/BottomNav';
 import { ScanOverlay } from '@/components/ScanOverlay';
 import { showToast } from '@/components/ToastHelper';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
-import { OlympiadAnalysisResult } from '@/types/olympiad';
+import {
+  OlympiadAnalysisResult,
+  UserProblem,
+  isOfflineDemoResult,
+} from '@/types/olympiad';
 
 interface MainAnalysisScreenProps {
   onBackToDashboard: () => void;
-  onLogout?: () => void;
-  activeProofId?: string;
-  analysis: OlympiadAnalysisResult | null;
+  analysis: OlympiadAnalysisResult;
   onUpdateAnalysis: (data: OlympiadAnalysisResult) => void;
   onOpenTypst: () => void;
   onOpenTheorem: () => void;
-  onOpenHistory: () => void;
-  onOpenProfile: () => void;
-  onOpenScan: () => void;
+  onAuditFinished: () => void;
+  onRequestSignup: () => void;
+}
+
+/** Combines the student's original proof with their rewrite of the broken step. */
+function buildCorrectedProof(analysis: OlympiadAnalysisResult, correction: string): string {
+  const step = analysis.fatalFlawStep;
+  if (!analysis.proofText) return correction;
+  return `${analysis.proofText}
+
+Corectura elevului pentru Pasul ${step ?? '?'} (înlocuiește redactarea inițială a acestui pas):
+${correction}`;
 }
 
 function MainAnalysisScreen({
   onBackToDashboard,
-  onLogout,
-  activeProofId,
   analysis,
   onUpdateAnalysis,
   onOpenTypst,
   onOpenTheorem,
-  onOpenHistory,
-  onOpenProfile,
-  onOpenScan,
+  onAuditFinished,
+  onRequestSignup,
 }: MainAnalysisScreenProps) {
   const insets = useSafeAreaInsets();
 
-  const [phase, setPhase] = useState<Phase>(analysis?.phase === 'sound' ? 'sound' : 'flaw');
-  const [fixed, setFixed] = useState(analysis?.phase === 'sound');
-  const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [hintOpen, setHintOpen] = useState(true);
+  const [phase, setPhase] = useState<Phase>(analysis.phase === 'sound' ? 'sound' : 'flaw');
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [shakeKey, setShakeKey] = useState(0);
+  const [customStepText, setCustomStepText] = useState('');
 
   useEffect(() => {
-    if (analysis) {
-      setPhase(analysis.phase === 'sound' ? 'sound' : 'flaw');
-      setFixed(analysis.phase === 'sound');
-    }
+    setPhase(analysis.phase === 'sound' ? 'sound' : 'flaw');
+    setCustomStepText('');
   }, [analysis]);
 
-  // Re-Analyze logic with Gemini 1.5 Flash
+  const correction = customStepText.trim();
+  const canReAudit = phase !== 'scanning' && phase !== 'sound' && correction.length > 0;
+
   const handleReAnalyze = async () => {
-    if (phase === 'scanning') return;
+    if (!canReAudit) {
+      if (phase === 'flaw') {
+        setInspectorOpen(true);
+        showToast('Rescrie mai întâi pasul marcat cu roșu.', 'none');
+      }
+      return;
+    }
+    const previousPhase = phase;
     setPhase('scanning');
 
     try {
-      showToast('Gemini re-auditează arborele deductiv…', 'done');
-      const [backendResult] = await Promise.all([
-        api.analyzeProof({
-          id: activeProofId || analysis?.id || 'analysis_bernoulli_01',
-          fixedCondition: fixed,
-          problemTitle: analysis?.problemId,
-          enunt: analysis?.problemRo,
-        }).catch(() => null),
-        new Promise((resolve) => setTimeout(resolve, 800)),
-      ]);
+      const result = await api.analyzeProof({
+        id: analysis.isExample ? undefined : analysis.id,
+        proofText: buildCorrectedProof(analysis, correction),
+        problemTitle: analysis.problemTitle,
+        enunt: analysis.problemRo,
+      });
+      onUpdateAnalysis(result);
+      onAuditFinished();
 
-      if (backendResult) {
-        onUpdateAnalysis(backendResult);
-        const isSound = backendResult.phase === 'sound' || backendResult.scorePercentage >= 99;
-
-        if (isSound) {
-          setPhase('sound');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          showToast(`AST Logic Sound ✓ (${backendResult.scorePercentage}%)`, 'done', 'success');
-        } else {
-          setPhase('flaw');
-          setShakeKey((prev) => prev + 1);
-          setInspectorOpen(true);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          showToast(
-            `Pasul ${backendResult.fatalFlawStep || 3} necesită verificare suplimentară.`,
-            'error',
-            'warning'
-          );
-        }
-      } else {
-        // Fallback local logic
-        if (fixed) {
-          setPhase('sound');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          showToast('AST Logic Sound ✓', 'done', 'success');
-        } else {
-          setPhase('flaw');
-          setShakeKey((prev) => prev + 1);
-          setInspectorOpen(true);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        }
-      }
-    } catch {
-      if (fixed) {
+      if (result.phase === 'sound') {
         setPhase('sound');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showToast(`Demonstrație validată: ${result.scaledScores.onm7p.score.toFixed(2)} / 7p`, 'done', 'success');
       } else {
         setPhase('flaw');
         setShakeKey((prev) => prev + 1);
         setInspectorOpen(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        showToast(
+          result.fatalFlawStep
+            ? `Pasul ${result.fatalFlawStep} încă necesită justificare.`
+            : 'Demonstrația încă are probleme.',
+          'error',
+          'warning'
+        );
       }
+    } catch (err: any) {
+      setPhase(previousPhase);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast(err?.message || 'Re-auditarea a eșuat. Încearcă din nou.', 'error');
+      if (err?.code === 'QUOTA_EXCEEDED') onRequestSignup();
     }
   };
 
-  const handleReset = () => {
-    setPhase('flaw');
-    setFixed(false);
-    setInspectorOpen(false);
-    setHintOpen(true);
-  };
+  const onmScore = analysis.scaledScores?.onm7p?.score;
 
   return (
     <View style={styles.screenContainer}>
-      <Header
-        onOpenTypst={onOpenTypst}
-        onBack={onBackToDashboard}
-      />
+      <Header onOpenTypst={onOpenTypst} onBack={onBackToDashboard} />
 
       <PipelineStrip phase={phase} />
 
@@ -173,42 +136,93 @@ function MainAnalysisScreen({
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
+        {isOfflineDemoResult(analysis) && (
+          <View style={[styles.notice, styles.noticeWarn]}>
+            <Info size={14} color={C.warn} strokeWidth={2} />
+            <Text style={[styles.noticeText, { color: C.warn }]}>
+              Rezultat demonstrativ: motorul AI nu este configurat pe server
+              (GEMINI_API_KEY), deci acest punctaj nu evaluează demonstrația ta.
+            </Text>
+          </View>
+        )}
+        {analysis.isExample && (
+          <View style={styles.notice}>
+            <Info size={14} color={C.primary} strokeWidth={2} />
+            <Text style={styles.noticeText}>
+              Exemplu rezolvat. Corectează pasul greșit și re-auditează: rezultatul
+              se salvează în contul tău.
+            </Text>
+          </View>
+        )}
+
         <ProofCard
           phase={phase}
-          fixed={fixed}
-          onToggleFixed={() => setFixed((prev) => !prev)}
           inspectorOpen={inspectorOpen}
           onToggleInspector={() => setInspectorOpen((prev) => !prev)}
           shakeKey={shakeKey}
           analysis={analysis}
+          onOpenTypst={onOpenTypst}
+          onOpenTheorem={onOpenTheorem}
+          customStepText={customStepText}
+          onChangeCustomStepText={setCustomStepText}
         />
       </ScrollView>
 
-      <FloatingHintCard
-        phase={phase}
-        hintOpen={hintOpen}
-        onToggleHint={() => setHintOpen((prev) => !prev)}
-        onReAnalyze={handleReAnalyze}
-        onOpenTheorem={onOpenTheorem}
-        onReset={handleReset}
-        analysis={analysis}
-      />
+      {/* Authoritative Archival Sticky Bottom Bar */}
+      <View style={[styles.stickyBottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.stickyScoreCol}>
+          <Text style={styles.stickyScoreLabel}>PUNCTAJ ONM</Text>
+          <Text style={[styles.stickyScoreValue, { color: phase === 'sound' ? C.success : C.flaw }]}>
+            {onmScore != null ? onmScore.toFixed(2) : '—'} / 7.00p
+          </Text>
+        </View>
 
-      <BottomNav
-        onOpenHistory={onOpenHistory}
-        onOpenProfile={onOpenProfile}
-        onOpenScan={onOpenScan}
-      />
+        <View style={styles.stickyActionsRow}>
+          <Pressable
+            onPress={onOpenTheorem}
+            accessibilityLabel="Breviar de teoreme"
+            style={({ pressed }) => [
+              styles.stickyIconBtn,
+              pressed && { backgroundColor: C.muted },
+            ]}
+          >
+            <BookOpen size={15} color={C.primary} strokeWidth={2} />
+          </Pressable>
+
+          {phase !== 'sound' && (
+            <Pressable
+              onPress={handleReAnalyze}
+              disabled={phase === 'scanning'}
+              style={({ pressed }) => [
+                styles.stickyReAnalyzeBtn,
+                pressed && { opacity: 0.85 },
+                !canReAudit && { opacity: 0.55 },
+              ]}
+            >
+              {phase === 'scanning' ? (
+                <Loader2 size={14} color={C.primaryFg} />
+              ) : (
+                <RefreshCw size={14} color={C.primaryFg} strokeWidth={2} />
+              )}
+              <Text style={styles.stickyReAnalyzeText}>
+                {phase === 'scanning' ? 'Se auditează…' : 'Re-Auditează'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
 
 function RootAppContent() {
-  const { user, isGuest, isLoading, logout } = useAuth();
+  const { user, isLoading, refreshStats } = useAuth();
   const [currentView, setCurrentView] = useState<'dashboard' | 'analysis'>('dashboard');
-  const [activeProofId, setActiveProofId] = useState<string>('analysis_bernoulli_01');
   const [currentAnalysis, setCurrentAnalysis] = useState<OlympiadAnalysisResult | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   // BottomSheetModal references
   const typstSheetRef = useRef<BottomSheetModal>(null);
@@ -218,59 +232,58 @@ function RootAppContent() {
 
   // Modals state
   const [scanOpen, setScanOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<'solution' | 'problem'>('solution');
+  const [scanInput, setScanInput] = useState<'camera' | 'text'>('camera');
+  const [targetProblem, setTargetProblem] = useState<UserProblem | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  // Load initial analysis on mount
+  // Never carry one account's open analysis over to the next account
   useEffect(() => {
-    async function loadInitial() {
-      try {
-        const data = await api.getProofById(activeProofId);
-        if (data) {
-          setCurrentAnalysis(data);
-        }
-      } catch {
-        // Fallback default
-      }
-    }
-    loadInitial();
-  }, [activeProofId]);
+    setCurrentAnalysis(null);
+    setCurrentView('dashboard');
+  }, [user?.id]);
 
-  const handleSelectProof = async (id: string) => {
-    setActiveProofId(id);
+  const handleOpenAnalysis = async (proofId: string) => {
+    if (openingId) return;
+    setOpeningId(proofId);
     try {
-      showToast('Se încarcă analiza…', 'done');
-      const data = await api.getProofById(id);
-      if (data) {
-        setCurrentAnalysis(data);
-      }
-    } catch {
-      // Keep existing
-    }
-    setCurrentView('analysis');
-    historySheetRef.current?.dismiss();
-  };
-
-  const handleOpenAnalysis = async (proofId?: string) => {
-    if (proofId) {
-      setActiveProofId(proofId);
-      try {
-        const data = await api.getProofById(proofId);
-        if (data) {
-          setCurrentAnalysis(data);
-        }
-      } catch {
-        // Keep existing
-      }
-    }
-    setCurrentView('analysis');
-  };
-
-  const handleScanComplete = (data?: OlympiadAnalysisResult) => {
-    setScanOpen(false);
-    if (data) {
+      const data = await api.getProofById(proofId);
       setCurrentAnalysis(data);
-      setActiveProofId(data.id);
+      setCurrentView('analysis');
+      historySheetRef.current?.dismiss();
+    } catch (err: any) {
+      showToast(err?.message || 'Nu am putut deschide analiza.', 'error');
+    } finally {
+      setOpeningId(null);
     }
+  };
+
+  const handleOpenScan = (
+    mode: 'solution' | 'problem' = 'solution',
+    problem: UserProblem | null = null,
+    input: 'camera' | 'text' = 'camera'
+  ) => {
+    setScanMode(mode);
+    setTargetProblem(problem);
+    setScanInput(input);
+    setScanOpen(true);
+  };
+
+  const handleAuditFinished = () => {
+    setRefreshTrigger((prev) => prev + 1);
+    refreshStats();
+  };
+
+  const handleProblemCreated = (newProblem: UserProblem) => {
+    setRefreshTrigger((prev) => prev + 1);
+    showToast(`Problema „${newProblem.title}” a fost salvată.`, 'done', 'success');
+  };
+
+  const handleScanComplete = (data: OlympiadAnalysisResult) => {
+    setScanOpen(false);
+    handleAuditFinished();
+    setCurrentAnalysis(data);
     setCurrentView('analysis');
   };
 
@@ -282,35 +295,39 @@ function RootAppContent() {
     );
   }
 
-  if (!user && !isGuest) {
+  if (!user) {
     return <AuthScreen />;
   }
 
   return (
     <View style={styles.root}>
-      {currentView === 'dashboard' ? (
-        <DashboardScreen
-          onOpenAnalysis={handleOpenAnalysis}
-          onOpenScan={() => setScanOpen(true)}
-          onOpenHistory={() => historySheetRef.current?.present()}
-          onOpenProfile={() => profileSheetRef.current?.present()}
-          onOpenTypst={() => typstSheetRef.current?.present()}
-          onOpenTheorem={() => theoremSheetRef.current?.present()}
-          onLogout={logout}
-        />
-      ) : (
+      {currentView === 'analysis' && currentAnalysis ? (
         <MainAnalysisScreen
           onBackToDashboard={() => setCurrentView('dashboard')}
-          onLogout={logout}
-          activeProofId={activeProofId}
           analysis={currentAnalysis}
           onUpdateAnalysis={setCurrentAnalysis}
           onOpenTypst={() => typstSheetRef.current?.present()}
           onOpenTheorem={() => theoremSheetRef.current?.present()}
-          onOpenHistory={() => historySheetRef.current?.present()}
-          onOpenProfile={() => profileSheetRef.current?.present()}
-          onOpenScan={() => setScanOpen(true)}
+          onAuditFinished={handleAuditFinished}
+          onRequestSignup={() => setAuthModalOpen(true)}
         />
+      ) : (
+        <>
+          <DashboardScreen
+            onOpenAnalysis={handleOpenAnalysis}
+            openingId={openingId}
+            onOpenScan={handleOpenScan}
+            onOpenHistory={() => historySheetRef.current?.present()}
+            onOpenProfile={() => profileSheetRef.current?.present()}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            refreshTrigger={refreshTrigger}
+          />
+          <BottomNav
+            onOpenHistory={() => historySheetRef.current?.present()}
+            onOpenProfile={() => profileSheetRef.current?.present()}
+            onOpenScan={() => handleOpenScan('solution')}
+          />
+        </>
       )}
 
       {/* Shared Sheets & Overlays */}
@@ -324,7 +341,8 @@ function RootAppContent() {
       />
       <HistorySheet
         ref={historySheetRef}
-        onSelectProof={handleSelectProof}
+        onSelectProof={handleOpenAnalysis}
+        refreshTrigger={refreshTrigger}
       />
       <ProfileSheet
         ref={profileSheetRef}
@@ -337,45 +355,20 @@ function RootAppContent() {
       <ScanOverlay
         visible={scanOpen}
         onClose={() => setScanOpen(false)}
+        mode={scanMode}
+        initialInput={scanInput}
+        targetProblem={targetProblem}
         onScanComplete={handleScanComplete}
+        onProblemCreated={handleProblemCreated}
+        onQuotaExceeded={() => setAuthModalOpen(true)}
       />
     </View>
   );
 }
 
+// Providers, fonts and the toaster live in app/_layout.tsx
 export default function AnalysisScreen() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Newsreader_400Regular,
-    Newsreader_400Regular_Italic,
-    Newsreader_500Medium,
-    JetBrainsMono_400Regular,
-    JetBrainsMono_500Medium,
-  });
-
-  if (!fontsLoaded && !fontError) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={styles.root}>
-        <BottomSheetModalProvider>
-          <AuthProvider>
-            <RootAppContent />
-          </AuthProvider>
-          <StatusBar style="light" />
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
-  );
+  return <RootAppContent />;
 }
 
 const styles = StyleSheet.create({
@@ -391,9 +384,83 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 28,
+  },
+  stickyBottomBar: {
+    backgroundColor: C.card,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 288,
+    paddingTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  stickyScoreCol: {
+    flexDirection: 'column',
+  },
+  stickyScoreLabel: {
+    fontFamily: F.mono,
+    fontSize: 9.5,
+    color: C.mutedFg,
+    letterSpacing: 0.6,
+  },
+  stickyScoreValue: {
+    fontFamily: F.monoMed,
+    fontSize: 15,
+    marginTop: 1,
+  },
+  stickyActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stickyIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    backgroundColor: C.background,
+    borderWidth: 1,
+    borderColor: C.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stickyReAnalyzeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: C.slateDeep,
+    borderRadius: 6,
+    paddingHorizontal: 15,
+    height: 38,
+  },
+  stickyReAnalyzeText: {
+    fontFamily: F.uiSemi,
+    fontSize: 12.5,
+    color: C.primaryFg,
+  },
+  notice: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+    backgroundColor: C.indigoSoft,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 12,
+  },
+  noticeWarn: {
+    backgroundColor: C.warnSoft,
+  },
+  noticeText: {
+    flex: 1,
+    fontFamily: F.ui,
+    fontSize: 12,
+    lineHeight: 17,
+    color: C.primary,
   },
   loadingContainer: {
     flex: 1,

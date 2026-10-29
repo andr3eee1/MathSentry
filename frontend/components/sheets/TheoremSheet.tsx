@@ -4,11 +4,11 @@ import {
   BottomSheetModal,
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
-  BottomSheetView,
+  BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { BookOpen, X } from 'lucide-react-native';
 import { C, F } from '@/theme';
-import { MathText, Var, Sup } from '@/components/MathText';
+import { MathText } from '@/components/MathText';
 
 interface TheoremSheetProps {
   onClose?: () => void;
@@ -17,20 +17,9 @@ interface TheoremSheetProps {
 
 export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
   ({ onClose, theorems }, ref) => {
-    const snapPoints = useMemo(() => ['85%'], []);
+    const snapPoints = useMemo(() => ['80%'], []);
 
-    const activeTheorems = theorems && theorems.length > 0
-      ? theorems
-      : [
-          {
-            name: "BERNOULLI'S INEQUALITY",
-            statement: 'Pentru orice număr întreg n ≥ 0 și orice număr real x ≥ −1, (1 + x)ⁿ ≥ 1 + nx.',
-          },
-          {
-            name: 'ORDER AXIOM FOR MULTIPLICATION',
-            statement: 'Dacă a ≥ b și c > 0, atunci ac ≥ bc. Dacă c < 0, sensul inegalității se inversează.',
-          },
-        ];
+    const activeTheorems = theorems || [];
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -54,8 +43,10 @@ export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
         handleIndicatorStyle={styles.handle}
         backgroundStyle={styles.sheetBackground}
       >
-        <BottomSheetView style={styles.container}>
-          {/* Close button at top right 16 */}
+        <BottomSheetScrollView
+          style={styles.container}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           <Pressable
             onPress={() => {
               (ref as any)?.current?.dismiss();
@@ -63,33 +54,39 @@ export const TheoremSheet = forwardRef<BottomSheetModal, TheoremSheetProps>(
             }}
             hitSlop={8}
             style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Închide"
           >
-            <X size={20} color={C.mutedFg} strokeWidth={2} />
+            <X size={18} color={C.mutedFg} strokeWidth={2} />
           </Pressable>
 
-          {/* Title Row */}
           <View style={styles.titleRow}>
             <BookOpen size={16} color={C.primary} strokeWidth={2} />
-            <Text style={styles.title}>Teoreme & Axiome Relevante</Text>
+            <Text style={styles.title}>Breviar de Teoreme & Axiome</Text>
           </View>
 
-          {/* Dynamic Theorem List */}
-          <View style={{ gap: 12, marginTop: 8 }}>
+          <View style={{ gap: 12, marginTop: 12 }}>
+            {activeTheorems.length === 0 && (
+              <Text style={styles.footerText}>
+                Nicio teoremă de referință nu a fost identificată pentru această analiză.
+              </Text>
+            )}
             {activeTheorems.map((t, idx) => (
-              <View key={`thm-${idx}`} style={styles.box1}>
-                <Text style={styles.boxLabel}>{t.name.toUpperCase()}</Text>
-                <Text style={[styles.boxBody, { fontFamily: F.ui, lineHeight: 20 }]}>
-                  {t.statement}
+              <View key={`thm-${idx}`} style={styles.theoremBox}>
+                <Text style={styles.boxLabel}>
+                  §{idx + 1} · {t.name.toUpperCase()}
                 </Text>
+                <MathText style={styles.boxBody}>{t.statement}</MathText>
               </View>
             ))}
           </View>
 
-          {/* Footer */}
           <Text style={styles.footerText}>
-            Comisia Națională de Matematică cere justificarea explicită a oricărui domeniu de definiție și a condițiilor de pozitivitate înainte de aplicarea acestor teoreme.
+            Notă metodologică ONM: Comisia Națională de Matematică impune
+            verificarea explicită a domeniului de definiție și a condițiilor de
+            pozitivitate înainte de invocarea acestor rezultate.
           </Text>
-        </BottomSheetView>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     );
   }
@@ -100,11 +97,13 @@ TheoremSheet.displayName = 'TheoremSheet';
 const styles = StyleSheet.create({
   sheetBackground: {
     backgroundColor: C.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     backgroundColor: C.border,
   },
@@ -127,47 +126,37 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontFamily: F.uiSemi,
-    fontSize: 16,
+    fontFamily: F.mathMed,
+    fontSize: 18,
     color: C.foreground,
   },
-  box1: {
-    marginTop: 16,
+  theoremBox: {
     borderWidth: 1,
+    borderLeftWidth: 3,
     borderColor: C.border,
-    borderRadius: 12,
-    padding: 16,
-  },
-  box2: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    padding: 16,
+    borderLeftColor: C.primary,
+    backgroundColor: C.background,
+    borderRadius: 6,
+    padding: 14,
   },
   boxLabel: {
-    fontFamily: F.uiSemi,
-    fontSize: 11,
-    letterSpacing: 0.6,
+    fontFamily: F.monoMed,
+    fontSize: 10,
+    letterSpacing: 0.5,
     color: C.primary,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   boxBody: {
     fontFamily: F.math,
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 15,
+    lineHeight: 22,
     color: C.foreground,
   },
-  highlightSpan: {
-    backgroundColor: C.warnSoft,
-    borderRadius: 4,
-    paddingHorizontal: 4,
-  },
   footerText: {
-    marginTop: 12,
-    fontFamily: F.ui,
-    fontSize: 12,
+    marginTop: 16,
+    fontFamily: F.mathItalic,
+    fontSize: 13,
     color: C.mutedFg,
-    lineHeight: 18,
+    lineHeight: 19,
   },
 });

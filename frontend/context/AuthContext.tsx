@@ -7,22 +7,21 @@ import React, {
 } from 'react';
 import { api, User, UserStats } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { showToast } from '@/components/ToastHelper';
 
 interface AuthContextType {
   user: User | null;
   stats: UserStats | null;
   token: string | null;
+  /** True only while restoring the stored session at startup. */
   isLoading: boolean;
   isGuest: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;
   loginDemo: () => Promise<void>;
-  continueAsGuest: () => void;
+  continueAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   refreshStats: () => Promise<void>;
-  isAuthModalOpen: boolean;
-  openAuthModal: () => void;
-  closeAuthModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,8 +33,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [stats, setStats] = useState<UserStats | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isGuest, setIsGuest] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  const clearSession = useCallback(() => {
+    api.setToken(null);
+    setToken(null);
+    setUser(null);
+    setStats(null);
+  }, []);
+
+  useEffect(() => {
+    api.setUnauthorizedHandler(() => {
+      clearSession();
+      showToast('Sesiunea a expirat. Autentifică-te din nou.', 'error');
+    });
+    return () => api.setUnauthorizedHandler(null);
+  }, [clearSession]);
 
   const refreshStats = useCallback(async () => {
     try {
@@ -43,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(data.user);
       setStats(data.stats);
     } catch {
-      // Ignored if offline or unauthorized
+      // Offline: keep showing the last known values
     }
   }, []);
 
@@ -57,10 +69,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const data = await api.getMe();
             setUser(data.user);
             setStats(data.stats);
-          } catch {
-            const cachedUserJson = await AsyncStorage.getItem('@mathsentry_user');
-            if (cachedUserJson) {
-              setUser(JSON.parse(cachedUserJson));
+          } catch (err: any) {
+            // Offline at startup: fall back to the cached profile. A 401 has
+            // already cleared the session through the unauthorized handler.
+            if (err?.status !== 401) {
+              const cachedUserJson = await AsyncStorage.getItem('@mathsentry_user');
+              if (cachedUserJson) {
+                setUser(JSON.parse(cachedUserJson));
+              }
             }
           }
         }
@@ -73,61 +89,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loadStoredAuth();
   }, []);
 
+  const applySession = async (res: { token: string; user: User }) => {
+    setToken(res.token);
+    setUser(res.user);
+    await refreshStats();
+  };
+
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const res = await api.login(email, password);
-      setToken(res.token);
-      setUser(res.user);
-      setIsGuest(false);
-      await refreshStats();
-      setIsAuthModalOpen(false);
-    } finally {
-      setIsLoading(false);
-    }
+    await applySession(await api.login(email, password));
   };
 
   const loginDemo = async () => {
     await login('olimpic@mathsentry.ro', 'olimpiada2026');
   };
 
-  const continueAsGuest = () => {
-    setIsGuest(true);
-    setUser({
-      id: 'guest_user',
-      email: 'oaspete@mathsentry.ro',
-      username: 'Oaspete Olimpic',
-      rank: 'Olympiad Explorer',
-      streak: 1,
-    });
-    setStats({
-      totalProofs: 12,
-      soundPercentage: 75,
-      streak: 1,
-      rank: 'Olympiad Explorer',
-    });
+  const continueAsGuest = async () => {
+    await applySession(await api.createGuest());
   };
 
   const register = async (email: string, password: string, username: string) => {
-    setIsLoading(true);
-    try {
-      const res = await api.register(email, password, username);
-      setToken(res.token);
-      setUser(res.user);
-      setIsGuest(false);
-      await refreshStats();
-      setIsAuthModalOpen(false);
-    } finally {
-      setIsLoading(false);
-    }
+    // When a guest is signed in, the server upgrades that account in place.
+    await applySession(await api.register(email, password, username));
   };
 
   const logout = async () => {
     await api.logout();
-    setToken(null);
-    setUser(null);
-    setStats(null);
-    setIsGuest(false);
+    clearSession();
   };
 
   return (
@@ -137,16 +124,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         stats,
         token,
         isLoading,
-        isGuest,
+        isGuest: Boolean(user?.isGuest),
         login,
         register,
         loginDemo,
         continueAsGuest,
         logout,
         refreshStats,
-        isAuthModalOpen,
-        openAuthModal: () => setIsAuthModalOpen(true),
-        closeAuthModal: () => setIsAuthModalOpen(false),
       }}
     >
       {children}

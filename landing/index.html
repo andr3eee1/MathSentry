@@ -2,17 +2,21 @@
 <html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366F1'/><text x='16' y='22' font-size='18' font-family='serif' fill='white' text-anchor='middle'>∑</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23161615'/><text x='16' y='22' font-size='18' font-family='serif' fill='%23FCFBF8' text-anchor='middle'>∑</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MathSentry — The AI Mathematical Proof Verification Engine</title>
-    <meta name="description" content="Photograph a handwritten proof. MathSentry rebuilds its logic as a tree, checks every dependency, and lights up the exact line that doesn't hold — with a hint, never the answer." />
+    <title>MathSentry — AI proof grader for olympiad (ONM) and Bac math</title>
+    <meta name="description" content="Photograph or type a math proof. MathSentry's AI finds the first broken step, applies cascading-failure grading on ONM 7p and Bac 10p scales, and gives teacher-style feedback. Free: 5 audits a day." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MathSentry — AI proof grader for olympiad and Bac math" />
+    <meta property="og:description" content="Find the first broken step in your proof. ONM 7p and Bac 10p scoring, teacher-style feedback, Typst export. Free: 5 audits a day, no account." />
+    <meta name="twitter:card" content="summary" />
 
     <!-- Google Fonts: Inter, Newsreader, JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet" />
   </head>
-  <body class="bg-[#F8FAFC] text-[#0B1120] font-sans antialiased selection:bg-indigo-500 selection:text-white">
+  <body class="bg-[#F7F4EE] text-[#161615] font-sans antialiased selection:bg-[#1E3A5F] selection:text-[#FCFBF8]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

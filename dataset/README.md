@@ -61,10 +61,22 @@ trainer = SFTTrainer(
 trainer.train()
 ```
 
-### Option 2: OpenAI Fine-Tuning API
-```bash
-openai api fine_tuning.jobs.create \
-  -t dataset/train.jsonl \
-  -v dataset/val.jsonl \
-  -m gpt-4o-mini-2024-07-18
-```
+---
+
+## Serving Fine-Tuned Model for Live Demo (Google Colab GPU)
+
+To impress the judges by running your fine-tuned **Qwen 2.5 Math 7B LoRA** model live:
+
+1. Open [`colab_mathsentry_api.ipynb`](colab_mathsentry_api.ipynb) in **Google Colab** (with free T4 GPU enabled).
+2. Upload `mathsentry_lora_model.zip` to Colab and run all cells.
+3. The notebook will automatically start a **Cloudflare Tunnel** and print your public URL:
+   ```
+   🚀 MATHSENTRY COLAB GPU API IS LIVE!
+   👉 PUBLIC URL: https://random-subdomain.trycloudflare.com
+   ```
+4. In your local `backend/.env`, set:
+   ```env
+   LORA_API_URL=https://random-subdomain.trycloudflare.com
+   ```
+5. Restart the MathSentry backend (`npm run dev`). All proof audits will now run directly on your custom fine-tuned LoRA model in 2-3 seconds!
+

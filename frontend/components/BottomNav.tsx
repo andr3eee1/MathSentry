@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { History, Award, Camera } from 'lucide-react-native';
-import { C, F, indigoShadow } from '@/theme';
+import { History, User as UserIcon, Camera } from 'lucide-react-native';
+import { C, F } from '@/theme';
 
 interface BottomNavProps {
   onOpenHistory: () => void;
@@ -28,15 +27,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     <View
       style={[
         styles.absoluteContainer,
-        { height: 80 + insets.bottom },
+        { height: 74 + insets.bottom },
       ]}
     >
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-
       <View
         style={[
           styles.contentRow,
-          { height: 80 + insets.bottom, paddingBottom: insets.bottom },
+          { height: 74 + insets.bottom, paddingBottom: insets.bottom },
         ]}
       >
         {/* Left Tab: History */}
@@ -47,21 +44,25 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             pressed && { opacity: 0.6 },
           ]}
         >
-          <History size={20} color={C.mutedFg} strokeWidth={2} />
-          <Text style={styles.tabLabel}>History</Text>
+          <History size={19} color={C.mutedFg} strokeWidth={2} />
+          <Text style={styles.tabLabel}>Arhivă</Text>
         </Pressable>
 
-        {/* Center: Camera Scan Button */}
-        <Pressable
-          onPress={handleScanPress}
-          style={({ pressed }) => [
-            styles.scanButton,
-            indigoShadow,
-            pressed && { transform: [{ scale: 0.95 }] },
-          ]}
-        >
-          <Camera size={24} color="#FFFFFF" strokeWidth={2} />
-        </Pressable>
+        {/* Center: Direct Camera Shutter Button */}
+        <View style={styles.centerColumn}>
+          <Pressable
+            onPress={handleScanPress}
+            accessibilityRole="button"
+            accessibilityLabel="Fotografiază demonstrația"
+            style={({ pressed }) => [
+              styles.scanButton,
+              pressed && { transform: [{ scale: 0.95 }] },
+            ]}
+          >
+            <Camera size={24} color={C.primaryFg} strokeWidth={2} />
+          </Pressable>
+          <Text style={styles.centerLabel}>Fotografiază</Text>
+        </View>
 
         {/* Right Tab: Profile */}
         <Pressable
@@ -71,8 +72,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             pressed && { opacity: 0.6 },
           ]}
         >
-          <Award size={20} color={C.mutedFg} strokeWidth={2} />
-          <Text style={styles.tabLabel}>Profile</Text>
+          <UserIcon size={19} color={C.mutedFg} strokeWidth={2} />
+          <Text style={styles.tabLabel}>Cont</Text>
         </Pressable>
       </View>
     </View>
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   contentRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: C.card,
     borderTopWidth: 1,
     borderTopColor: C.border,
     flexDirection: 'row',
@@ -98,26 +99,40 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   sideTab: {
-    width: 80,
+    width: 84,
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
     paddingTop: 4,
   },
   tabLabel: {
-    fontFamily: F.uiMed,
-    fontSize: 11,
+    fontFamily: F.mono,
+    fontSize: 10.5,
     color: C.mutedFg,
   },
+  centerColumn: {
+    alignItems: 'center',
+  },
   scanButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: C.primary,
-    marginTop: -32,
-    borderWidth: 4,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: C.slateDeep,
+    marginTop: -28,
+    borderWidth: 3,
     borderColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  centerLabel: {
+    fontFamily: F.monoMed,
+    fontSize: 10,
+    color: C.foreground,
+    marginTop: 3,
   },
 });

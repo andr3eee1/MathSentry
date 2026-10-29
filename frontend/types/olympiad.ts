@@ -27,6 +27,7 @@ export interface ASTNodeBreak {
 export interface OlympiadAnalysisResult {
   id: string;
   problemId: string;
+  problemTitle?: string;
   domain: string;
   problemRo: string;
   phase: 'sound' | 'flaw' | 'scanning';
@@ -47,9 +48,28 @@ export interface OlympiadAnalysisResult {
     statement: string;
   }>;
   typstSource: string;
+  proofText?: string;
+  isExample?: boolean;
+  createdAt?: string;
   _meta?: {
     engine: string;
     model: string;
-    freeTier: boolean;
   };
+}
+
+/** True when the result came from the dev-only canned grader, not a real AI audit. */
+export const isOfflineDemoResult = (a?: OlympiadAnalysisResult | null): boolean =>
+  a?._meta?.engine === 'local-deterministic';
+
+export interface UserProblem {
+  id: string;
+  userId: string;
+  title: string;
+  domain: string;
+  enuntRo: string;
+  createdAt: string;
+  dateRelative?: string;
+  solutionCount?: number;
+  highestScore?: number | null;
+  latestStatus?: 'sound' | 'flaw' | null;
 }

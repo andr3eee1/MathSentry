@@ -24,7 +24,7 @@ export const PipelineStrip: React.FC<PipelineStripProps> = ({ phase }) => {
     if (phase === 'scanning') {
       rotation.value = 0;
       rotation.value = withRepeat(
-        withTiming(360, { duration: 800, easing: Easing.linear }),
+        withTiming(360, { duration: 900, easing: Easing.linear }),
         -1,
         false
       );
@@ -45,39 +45,45 @@ export const PipelineStrip: React.FC<PipelineStripProps> = ({ phase }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Chip 1: OCR Digitized */}
-        <View style={styles.okChip}>
-          <Check size={12} color={C.success} strokeWidth={2} />
-          <Text style={styles.okChipText}>OCR Digitized</Text>
+        {/* Stage 1: OCR / Symbolic Extraction */}
+        <View style={styles.stageItem}>
+          <Text style={styles.stageIndex}>01</Text>
+          <Text style={styles.stageText}>TRANSCRIERE LaTeX</Text>
+          <Check size={11} color={C.success} strokeWidth={2.5} />
         </View>
 
-        {/* Chip 2: LaTeX Parsed */}
-        <View style={styles.okChip}>
-          <Check size={12} color={C.success} strokeWidth={2} />
-          <Text style={styles.okChipText}>LaTeX Parsed</Text>
+        <Text style={styles.divider}>/</Text>
+
+        {/* Stage 2: AST Dependency Graph */}
+        <View style={styles.stageItem}>
+          <Text style={styles.stageIndex}>02</Text>
+          <Text style={styles.stageText}>ARBORE DEDUCTIV</Text>
+          <Check size={11} color={C.success} strokeWidth={2.5} />
         </View>
 
-        {/* Chip 3: State-dependent */}
+        <Text style={styles.divider}>/</Text>
+
+        {/* Stage 3: Verdict State */}
         {phase === 'flaw' && (
-          <View style={styles.flawChip}>
-            <AlertTriangle size={12} color={C.warn} strokeWidth={2} />
-            <Text style={styles.flawChipText}>AST Logic: 1 Flaw</Text>
+          <View style={[styles.stageItem, styles.flawBadge]}>
+            <AlertTriangle size={11} color={C.flaw} strokeWidth={2.2} />
+            <Text style={styles.flawText}>03 FRACTURĂ DETECTATĂ</Text>
           </View>
         )}
 
         {phase === 'scanning' && (
-          <View style={styles.scanningChip}>
+          <View style={[styles.stageItem, styles.scanningBadge]}>
             <Animated.View style={spinnerAnimatedStyle}>
-              <Loader2 size={12} color={C.primary} strokeWidth={2} />
+              <Loader2 size={11} color={C.primary} strokeWidth={2.2} />
             </Animated.View>
-            <Text style={styles.scanningChipText}>Evaluating AST…</Text>
+            <Text style={styles.scanningText}>03 SE AUDITEAZĂ PAȘII…</Text>
           </View>
         )}
 
         {phase === 'sound' && (
-          <View style={styles.okChip}>
-            <Check size={12} color={C.success} strokeWidth={2} />
-            <Text style={styles.okChipText}>AST Logic Sound</Text>
+          <View style={[styles.stageItem, styles.soundBadge]}>
+            <Check size={11} color={C.success} strokeWidth={2.5} />
+            <Text style={styles.soundText}>03 VALIDAT RIGUROS</Text>
           </View>
         )}
       </ScrollView>
@@ -87,59 +93,79 @@ export const PipelineStrip: React.FC<PipelineStripProps> = ({ phase }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: C.card,
+    backgroundColor: C.muted,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   scrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  okChip: {
+  stageItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: C.successSoft,
+    gap: 5,
   },
-  okChipText: {
-    fontFamily: F.uiMed,
+  stageIndex: {
+    fontFamily: F.mono,
+    fontSize: 10,
+    color: C.mutedFg,
+  },
+  stageText: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.foreground,
+    letterSpacing: 0.4,
+  },
+  divider: {
+    fontFamily: F.mono,
     fontSize: 11,
-    color: C.success,
+    color: C.border,
+    marginHorizontal: 2,
   },
-  flawChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: C.warnSoft,
+  flawBadge: {
+    backgroundColor: C.flawSoft,
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.3)',
+    borderColor: 'rgba(185, 28, 28, 0.25)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  flawChipText: {
-    fontFamily: F.uiMed,
-    fontSize: 11,
-    color: C.warn,
+  flawText: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.flaw,
+    letterSpacing: 0.3,
   },
-  scanningChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  scanningBadge: {
     backgroundColor: C.indigoSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 58, 95, 0.2)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  scanningChipText: {
-    fontFamily: F.uiMed,
-    fontSize: 11,
+  scanningText: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
     color: C.primary,
+    letterSpacing: 0.3,
+  },
+  soundBadge: {
+    backgroundColor: C.successSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 101, 52, 0.25)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  soundText: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.success,
+    letterSpacing: 0.3,
   },
 });

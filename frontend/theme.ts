@@ -1,24 +1,25 @@
 export const C = {
-  slateDeep: '#1A2234',     // refined lighter header & dark surfaces
-  slateCard: '#232D42',     // surface card
-  slateBorder: '#334155',   // subtle dark border
-  primary: '#5B52F2',       // vibrant modern indigo
-  primaryDark: '#4F46E5',
-  primaryFg: '#FFFFFF',
-  background: '#F8FAFC',    // clean canvas
-  card: '#FFFFFF',
-  foreground: '#0F172A',    // soft charcoal foreground
-  muted: '#F1F5F9',
-  mutedFg: '#64748B',
-  border: '#E2E8F0',
-  borderLight: '#EDF2F7',
-  success: '#16A34A',
-  successSoft: '#DCFCE7',
-  flaw: '#EF4444',
-  flawSoft: '#FEF2F2',
-  warn: '#F59E0B',
-  warnSoft: '#FFFBEB',
-  indigoSoft: '#EEF2FF',
+  // Archival Paper & Carbon Ink Palette (Tufte / Typst / Editorial)
+  slateDeep: '#161615',     // deep carbon ink (primary buttons, dark code surfaces)
+  slateCard: '#22211F',     // warm obsidian card surface
+  slateBorder: '#33312E',   // subtle dark ink border
+  primary: '#1E3A5F',       // Oxford academic navy ink
+  primaryDark: '#152945',   // deeper Oxford ink
+  primaryFg: '#FCFBF8',     // crisp ivory text on ink
+  background: '#F7F4EE',    // warm archival paper canvas
+  card: '#FCFBF8',          // manuscript ivory sheet
+  foreground: '#161615',    // carbon ink foreground
+  muted: '#EFECE4',         // recessed stone paper surface
+  mutedFg: '#6B665E',       // warm graphite secondary text
+  border: '#DED9CE',        // hairline warm stone border
+  borderLight: '#E8E3D9',   // subtle manuscript divider rule
+  success: '#166534',       // forest verification ink
+  successSoft: '#EBF5EE',   // soft botanical wash
+  flaw: '#B91C1C',          // editorial red-pen crimson
+  flawSoft: '#FDF2F2',      // pale crimson margin wash
+  warn: '#B45309',          // ochre / amber annotation ink
+  warnSoft: '#FDF8ED',      // soft parchment amber wash
+  indigoSoft: '#EDF1F5',    // subtle Oxford navy wash
 };
 
 export const F = {
@@ -33,12 +34,13 @@ export const F = {
   monoMed: 'JetBrainsMono_500Medium',
 };
 
-export const indigoShadow = { // iOS + Android
-  shadowColor: '#5B52F2',
-  shadowOpacity: 0.35,
-  shadowRadius: 18,
-  shadowOffset: { width: 0, height: 12 },
-  elevation: 10,
+// Subtle archival paper elevation (replaces neon indigo glow)
+export const indigoShadow = {
+  shadowColor: '#161615',
+  shadowOpacity: 0.06,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 2,
 };
 
 export const SPRING_CONFIG = {

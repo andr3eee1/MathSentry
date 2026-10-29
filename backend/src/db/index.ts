@@ -14,6 +14,28 @@ export const db = new Database(DB_PATH);
 // Enable WAL mode for high performance
 db.pragma('journal_mode = WAL');
 
+/** Owner of the public example analyses every user can open (read-only). */
+export const EXAMPLES_USER_ID = 'system_examples';
+export const EXAMPLE_ANALYSIS_IDS = [
+  'analysis_bernoulli_01',
+  'analysis_imo_01',
+  'analysis_cauchy_01',
+  'analysis_dirichlet_01',
+];
+
+function addColumnIfMissing(table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+const BERNOULLI_FLAWED_PROOF = `Pasul 1 (Cazul de bază): Pentru n = 1, avem (1 + x)^1 = 1 + 1·x, deci egalitatea are loc.
+Pasul 2 (Ipoteza de inducție): Presupunem că (1 + x)^k >= 1 + kx este adevărată pentru k >= 1.
+Pasul 3 (Pasul inductiv): Înmulțim ambii membri ai ipotezei cu (1 + x):
+(1 + x)^(k+1) >= (1 + kx)(1 + x) = 1 + (k+1)x + kx^2 >= 1 + (k+1)x.
+Pasul 4 (Concluzie): Conform principiului inducției matematice, inegalitatea este demonstrată pentru orice n ∈ ℕ*.`;
+
 export function initDatabase(): void {
   // 1. Users Table
   db.exec(`
@@ -55,10 +77,45 @@ export function initDatabase(): void {
     );
   `);
 
-  seedDemoUserAndAnalyses();
+  // 3. User Uploaded Problems Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_problems (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      enunt_ro TEXT NOT NULL,
+      rubric_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+
+  addColumnIfMissing('users', 'is_guest', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing('proof_analyses', 'proof_text', 'TEXT');
+  addColumnIfMissing('proof_analyses', 'engine', 'TEXT');
+
+  // 4. AI usage log (daily quota / cost control)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_usage_user_time ON usage_events (user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_usage_time ON usage_events (created_at);
+    CREATE INDEX IF NOT EXISTS idx_analyses_user_time ON proof_analyses (user_id, created_at);
+  `);
+
+  seedExampleAnalyses();
+  if (process.env.NODE_ENV === 'development') {
+    seedDemoUser();
+  }
 }
 
-function seedDemoUserAndAnalyses(): void {
+function seedDemoUser(): void {
   const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get('olimpic@mathsentry.ro');
 
   let userId: string;
@@ -77,14 +134,80 @@ function seedDemoUserAndAnalyses(): void {
       7,
       new Date().toISOString()
     );
-    console.log('[SQLite] Seeded demo user: olimpic@mathsentry.ro / olimpiada2026');
+    console.log('[SQLite] Seeded dev demo user: olimpic@mathsentry.ro');
   } else {
     userId = (existingUser as any).id;
   }
 
-  // Seed initial analyses if empty for this user
-  const count = db.prepare('SELECT COUNT(*) as count FROM proof_analyses WHERE user_id = ?').get(userId) as any;
-  if (count.count === 0) {
+  // Seed initial user problems bank if empty
+  const probCount = db.prepare('SELECT COUNT(*) as count FROM user_problems WHERE user_id = ?').get(userId) as any;
+  if (!probCount || probCount.count === 0) {
+    const insertProb = db.prepare(`
+      INSERT INTO user_problems (id, user_id, title, domain, enunt_ro, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const now = new Date().toISOString();
+    insertProb.run(
+      'prob_bernoulli',
+      userId,
+      'Inegalitatea lui Bernoulli și Condiția Critică de Semn',
+      'Algebră / Inegalități',
+      'Fie x ∈ ℝ cu x > -1 și n ∈ ℕ*. Să se demonstreze prin inducție matematică inegalitatea: (1 + x)ⁿ ≥ 1 + nx.',
+      now,
+      now
+    );
+
+    insertProb.run(
+      'prob_cauchy',
+      userId,
+      'Inegalitatea lui Cauchy-Schwarz (Barem ONM)',
+      'Algebră / Inegalități',
+      'Fie a1..an și b1..bn numere reale. Demonstrați că (sum ai²)(sum bi²) ≥ (sum ai bi)²',
+      now,
+      now
+    );
+
+    insertProb.run(
+      'prob_poly',
+      userId,
+      'Rădăcini Întregi pentru Polinoame cu Valori Impare',
+      'Algebră / Polinoame',
+      'Fie P(X) un polinom cu coeficienți întregi astfel încât P(0) și P(1) sunt numere impare. Demonstrați că P nu are rădăcini întregi.',
+      now,
+      now
+    );
+
+    console.log('[SQLite] Seeded default user problems for bank');
+  }
+
+}
+
+function seedExampleAnalyses(): void {
+  db.prepare(`
+    INSERT OR IGNORE INTO users (id, email, password_hash, username, rank, streak, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    EXAMPLES_USER_ID,
+    'examples@mathsentry.local',
+    '!', // not a valid bcrypt hash, so this account can never log in
+    'MathSentry',
+    'System',
+    0,
+    new Date().toISOString()
+  );
+
+  // Older databases stored the examples under the shared demo account.
+  const placeholders = EXAMPLE_ANALYSIS_IDS.map(() => '?').join(', ');
+  db.prepare(`UPDATE proof_analyses SET user_id = ? WHERE id IN (${placeholders})`)
+    .run(EXAMPLES_USER_ID, ...EXAMPLE_ANALYSIS_IDS);
+  db.prepare("UPDATE proof_analyses SET proof_text = ? WHERE id = 'analysis_bernoulli_01' AND proof_text IS NULL")
+    .run(BERNOULLI_FLAWED_PROOF);
+
+  // Examples are canonical system content: rewrite them on every start so a
+  // stray update can never leave users looking at a corrupted showcase.
+  const userId = EXAMPLES_USER_ID;
+  {
     const defaultTheorems = JSON.stringify([
       {
         name: "BERNOULLI'S INEQUALITY",
@@ -175,7 +298,7 @@ for all $n in NN$. $qed$`;
     const now = new Date().toISOString();
 
     const insertStmt = db.prepare(`
-      INSERT INTO proof_analyses (
+      INSERT OR REPLACE INTO proof_analyses (
         id, user_id, problem_id, problem_title, domain, problem_ro, phase,
         score_percentage, onm_score, bac_score, fatal_flaw_step, cascading_steps_json,
         step_breakdown_json, ast_node_break_json, explanation_ro, teacher_critique_ro,
@@ -293,6 +416,8 @@ for all $n in NN$. $qed$`;
       oneWeekAgo
     );
 
-    console.log('[SQLite] Seeded 4 Olympiad analysis records for demo user.');
+    db.prepare("UPDATE proof_analyses SET proof_text = ? WHERE id = 'analysis_bernoulli_01'")
+      .run(BERNOULLI_FLAWED_PROOF);
+    console.log('[SQLite] Seeded public example analyses.');
   }
 }

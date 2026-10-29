@@ -12,3 +12,6 @@ web-build/
 *.db-wal
 *.db-shm
 backend/data/*.db*
+
+# Model weights are too large for GitHub (100 MB limit): use a release asset or Git LFS
+dataset/*.zip

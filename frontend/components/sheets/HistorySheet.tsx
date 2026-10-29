@@ -1,10 +1,10 @@
 import React, { forwardRef, useCallback, useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
-  BottomSheetView,
+  BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { Check, AlertTriangle, X } from 'lucide-react-native';
 import { C, F } from '@/theme';
@@ -13,58 +13,23 @@ import { api, HistoryItem } from '@/services/api';
 interface HistorySheetProps {
   onClose?: () => void;
   onSelectProof?: (id: string) => void;
+  refreshTrigger?: number;
 }
 
-const DEFAULT_HISTORY: HistoryItem[] = [
-  {
-    id: 'analysis_imo_01',
-    title: 'IMO 2001 P2 — AM-GM chain',
-    date: '2 days ago',
-    status: 'ok',
-    scorePercentage: 100,
-    onmScore: 7.0,
-  },
-  {
-    id: 'analysis_cauchy_01',
-    title: 'Cauchy–Schwarz lemma (USAMO)',
-    date: '5 days ago',
-    status: 'flaw',
-    scorePercentage: 40,
-    onmScore: 2.8,
-  },
-  {
-    id: 'analysis_dirichlet_01',
-    title: 'Pigeonhole on residues mod 7',
-    date: '1 week ago',
-    status: 'ok',
-    scorePercentage: 100,
-    onmScore: 7.0,
-  },
-  {
-    id: 'analysis_bernoulli_01',
-    title: 'Bernoulli via induction',
-    date: 'Today',
-    status: 'flaw',
-    scorePercentage: 40,
-    onmScore: 2.8,
-  },
-];
-
 export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
-  ({ onClose, onSelectProof }, ref) => {
+  ({ onClose, onSelectProof, refreshTrigger = 0 }, ref) => {
     const snapPoints = useMemo(() => ['85%'], []);
-    const [items, setItems] = useState<HistoryItem[]>(DEFAULT_HISTORY);
+    const [items, setItems] = useState<HistoryItem[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
     const loadHistory = useCallback(async () => {
       setLoading(true);
       try {
-        const data = await api.getHistory();
-        if (data && data.length > 0) {
-          setItems(data);
-        }
-      } catch {
-        // Fallback to default
+        setItems(await api.getHistory());
+        setError(null);
+      } catch (err: any) {
+        setError(err?.message || 'Nu am putut încărca arhiva.');
       } finally {
         setLoading(false);
       }
@@ -72,7 +37,7 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
 
     useEffect(() => {
       loadHistory();
-    }, [loadHistory]);
+    }, [loadHistory, refreshTrigger]);
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -101,10 +66,15 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={styles.handle}
         backgroundStyle={styles.sheetBackground}
-        onAnimate={() => loadHistory()}
+        onChange={(index) => {
+          if (index >= 0) loadHistory();
+        }}
       >
-        <BottomSheetView style={styles.container}>
-          {/* Close button at top right 16 */}
+        <BottomSheetScrollView
+          style={styles.container}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
           <Pressable
             onPress={() => {
               (ref as any)?.current?.dismiss();
@@ -112,18 +82,27 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
             }}
             hitSlop={8}
             style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Închide"
           >
-            <X size={20} color={C.mutedFg} strokeWidth={2} />
+            <X size={18} color={C.mutedFg} strokeWidth={2} />
           </Pressable>
 
-          <Text style={styles.title}>Past Analyses</Text>
+          <Text style={styles.tag}>ARHIVA DE CONCURS</Text>
+          <Text style={styles.title}>Dosare de Audit Recente</Text>
 
-          {loading ? (
+          {loading && items.length === 0 ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={C.primary} />
             </View>
+          ) : error && items.length === 0 ? (
+            <Text style={styles.emptyText}>{error}</Text>
+          ) : items.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Nu ai verificat încă nicio demonstrație. Analizele tale vor apărea aici.
+            </Text>
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <View>
               {items.map((item) => (
                 <Pressable
                   key={item.id}
@@ -135,16 +114,22 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
                 >
                   <View
                     style={[
-                      styles.statusCircle,
+                      styles.statusSquare,
                       item.status === 'ok'
-                        ? { backgroundColor: C.successSoft }
-                        : { backgroundColor: C.flawSoft },
+                        ? {
+                            backgroundColor: C.successSoft,
+                            borderColor: 'rgba(22, 101, 52, 0.3)',
+                          }
+                        : {
+                            backgroundColor: C.flawSoft,
+                            borderColor: 'rgba(185, 28, 28, 0.3)',
+                          },
                     ]}
                   >
                     {item.status === 'ok' ? (
-                      <Check size={16} color={C.success} strokeWidth={2} />
+                      <Check size={14} color={C.success} strokeWidth={2.5} />
                     ) : (
-                      <AlertTriangle size={16} color={C.flaw} strokeWidth={2} />
+                      <AlertTriangle size={14} color={C.flaw} strokeWidth={2.2} />
                     )}
                   </View>
 
@@ -161,15 +146,15 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
                             : { color: C.flaw },
                         ]}
                       >
-                        {item.scorePercentage}% ({item.onmScore}p)
+                        {item.scorePercentage}% ({item.onmScore.toFixed(2)} / 7.00p)
                       </Text>
                     </View>
                   </View>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
           )}
-        </BottomSheetView>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     );
   }
@@ -178,13 +163,23 @@ export const HistorySheet = forwardRef<BottomSheetModal, HistorySheetProps>(
 HistorySheet.displayName = 'HistorySheet';
 
 const styles = StyleSheet.create({
+  emptyText: {
+    fontFamily: F.ui,
+    fontSize: 13,
+    lineHeight: 19,
+    color: C.mutedFg,
+    paddingVertical: 24,
+    textAlign: 'center',
+  },
   sheetBackground: {
     backgroundColor: C.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
     backgroundColor: C.border,
   },
@@ -204,26 +199,33 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 4,
   },
+  tag: {
+    fontFamily: F.monoMed,
+    fontSize: 9.5,
+    color: C.primary,
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
   title: {
-    fontFamily: F.uiSemi,
-    fontSize: 16,
+    fontFamily: F.mathMed,
+    fontSize: 19,
     color: C.foreground,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   row: {
     paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 10,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: C.borderLight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  statusCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  statusSquare: {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTitle: {
-    fontFamily: F.math,
+    fontFamily: F.mathMed,
     fontSize: 15,
     color: C.foreground,
   },
@@ -242,17 +244,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   rowDate: {
-    fontFamily: F.ui,
-    fontSize: 11,
+    fontFamily: F.mono,
+    fontSize: 10.5,
     color: C.mutedFg,
   },
   metaDot: {
-    fontFamily: F.ui,
-    fontSize: 11,
+    fontFamily: F.mono,
+    fontSize: 10.5,
     color: C.mutedFg,
   },
   metaScore: {
-    fontFamily: F.uiMed,
-    fontSize: 11,
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
   },
 });

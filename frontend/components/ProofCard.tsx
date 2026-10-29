@@ -4,653 +4,975 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  LayoutChangeEvent,
+  TextInput,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withRepeat,
   withSequence,
   withTiming,
-  Easing,
   FadeIn,
   FadeOut,
   LinearTransition,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
   Check,
   AlertTriangle,
   Pencil,
-  PauseCircle,
-  ShieldAlert,
-  Sparkles,
+  CornerDownRight,
+  BookOpen,
+  FileCode,
+  Scale,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import { C, F, SPRING_CONFIG } from '@/theme';
-import { MathText, Var, Sup } from '@/components/MathText';
+import { MathText } from '@/components/MathText';
 import { Phase } from '@/components/PipelineStrip';
 import { OlympiadAnalysisResult, StepEvaluation } from '@/types/olympiad';
 
 interface ProofCardProps {
   phase: Phase;
-  fixed: boolean;
-  onToggleFixed: () => void;
   inspectorOpen: boolean;
   onToggleInspector: () => void;
   shakeKey: number;
-  analysis?: OlympiadAnalysisResult | null;
+  analysis: OlympiadAnalysisResult;
+  onOpenTypst?: () => void;
+  onOpenTheorem?: () => void;
+  customStepText?: string;
+  onChangeCustomStepText?: (text: string) => void;
 }
 
 export const ProofCard: React.FC<ProofCardProps> = ({
   phase,
-  fixed,
-  onToggleFixed,
   inspectorOpen,
   onToggleInspector,
   shakeKey,
   analysis,
+  onOpenTypst,
+  onOpenTheorem,
+  customStepText,
+  onChangeCustomStepText,
 }) => {
-  const [cardHeight, setCardHeight] = useState<number>(600);
+  const [editingInline, setEditingInline] = useState(false);
 
-  // Scanning beam animation
-  const beamProgress = useSharedValue(0);
-  useEffect(() => {
-    if (phase === 'scanning') {
-      beamProgress.value = 0;
-      beamProgress.value = withTiming(0.7, {
-        duration: 1200,
-        easing: Easing.inOut(Easing.ease),
-      });
-    } else {
-      beamProgress.value = 0;
-    }
-  }, [phase]);
-
-  const beamAnimatedStyle = useAnimatedStyle(() => ({
-    top: beamProgress.value * cardHeight,
-  }));
-
-  // AlertTriangle pulse for flaw
-  const alertOpacity = useSharedValue(1);
-  useEffect(() => {
-    if (phase !== 'sound') {
-      alertOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.5, { duration: 1000 }),
-          withTiming(1, { duration: 1000 })
-        ),
-        -1,
-        true
-      );
-    } else {
-      alertOpacity.value = 1;
-    }
-  }, [phase]);
-
-  const alertAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: alertOpacity.value,
-  }));
-
-  // Shake animation on failed re-analysis
-  const shakeScale = useSharedValue(1);
+  // Subtle horizontal shake on failed re-analysis
   const shakeTranslateX = useSharedValue(0);
 
   useEffect(() => {
     if (shakeKey > 0) {
-      shakeScale.value = withSequence(
-        withTiming(1.02, { duration: 225 }),
-        withTiming(1, { duration: 225 })
-      );
       shakeTranslateX.value = withSequence(
-        withTiming(-4, { duration: 75 }),
-        withTiming(4, { duration: 75 }),
-        withTiming(-4, { duration: 75 }),
-        withTiming(4, { duration: 75 }),
-        withTiming(0, { duration: 75 })
+        withTiming(-5, { duration: 65 }),
+        withTiming(5, { duration: 65 }),
+        withTiming(-4, { duration: 65 }),
+        withTiming(4, { duration: 65 }),
+        withTiming(0, { duration: 65 })
       );
     }
   }, [shakeKey]);
 
   const stepFlawShakeStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: shakeScale.value },
-      { translateX: shakeTranslateX.value },
-    ],
+    transform: [{ translateX: shakeTranslateX.value }],
   }));
 
-  const handleEditConditionPress = (e: any) => {
+  const isSound = phase === 'sound';
+  const steps: StepEvaluation[] = analysis.stepBreakdown || [];
+  const fatalFlawStep =
+    analysis.fatalFlawStep ??
+    steps.find((s) => !s.isSound && !s.isCascadedFailure)?.step;
+  const hasCorrection = Boolean(customStepText?.trim());
+
+  const problemText = analysis.problemRo;
+  const domainText = analysis.domain || 'Matematică';
+  const problemCode = analysis.problemTitle || analysis.problemId;
+  const onmScore = analysis.scaledScores?.onm7p?.score ?? 0;
+  const bacScore = analysis.scaledScores?.bac10p?.score ?? 0;
+  const scorePct = analysis.scorePercentage ?? 0;
+  const missingCondition = analysis.astNodeBreak?.condition;
+  const violatedRule = analysis.astNodeBreak?.rule;
+
+  const handleStartCorrection = (e: any) => {
     e.stopPropagation();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onToggleFixed();
+    if (!editingInline && !hasCorrection && missingCondition) {
+      onChangeCustomStepText?.(`Deoarece …, avem ${missingCondition}, deci `);
+    }
+    setEditingInline((prev) => !prev);
   };
 
-  const isSound = phase === 'sound' || (analysis?.phase === 'sound' && fixed);
-  const fatalFlawStep = analysis?.fatalFlawStep ?? 3;
-  const steps: StepEvaluation[] = analysis?.stepBreakdown && analysis.stepBreakdown.length > 0
-    ? analysis.stepBreakdown
-    : [
-        {
-          step: 1,
-          label: 'BASE CASE (n = 1)',
-          maxPercentage: 15,
-          awardedPercentage: 15,
-          deductionPercentage: 0,
-          isSound: true,
-          commentRo: 'For n = 1, (1 + x)¹ = 1 + 1(x), which holds identically.',
-          onmPoints: 1.05,
-          bacPoints: 1.5,
-        },
-        {
-          step: 2,
-          label: 'INDUCTIVE HYPOTHESIS',
-          maxPercentage: 25,
-          awardedPercentage: 25,
-          deductionPercentage: 0,
-          isSound: true,
-          commentRo: 'Assume P(k) holds for some k ∈ ℕ, so (1 + x)^k ≥ 1 + kx.',
-          onmPoints: 1.75,
-          bacPoints: 2.5,
-        },
-        {
-          step: 3,
-          label: 'INDUCTIVE STEP',
-          maxPercentage: 45,
-          awardedPercentage: isSound ? 45 : 0,
-          deductionPercentage: isSound ? 0 : 45,
-          isSound: isSound,
-          commentRo: isSound
-            ? 'Since x > −1, we have 1 + x > 0. Multiply both sides by (1 + x): (1 + x)^(k+1) ≥ 1 + (k+1)x.'
-            : 'Multiply both sides of P(k) by (1 + x) to obtain (1 + x)^(k+1) ≥ 1 + (k+1)x.',
-          onmPoints: isSound ? 3.15 : 0,
-          bacPoints: isSound ? 4.5 : 0,
-        },
-        {
-          step: 4,
-          label: 'CONCLUSION',
-          maxPercentage: 15,
-          awardedPercentage: isSound ? 15 : 0,
-          deductionPercentage: isSound ? 0 : 15,
-          isSound: isSound,
-          isCascadedFailure: !isSound,
-          commentRo: isSound
-            ? 'By Mathematical Induction, P(n) holds for all n ∈ ℕ. ∎'
-            : 'COLAPS ÎN CASCADĂ (0%): Concluzia se bazează pe Pasul 3 invalidat.',
-          onmPoints: isSound ? 1.05 : 0,
-          bacPoints: isSound ? 1.5 : 0,
-        },
-      ];
-
-  const problemText = analysis?.problemRo || 'Prove that for all real x ≠ 0, (1 + x)ⁿ ≥ 1 + nx for n ∈ ℕ, given x > -1.';
-  const domainText = analysis?.domain || 'Algebră / Inegalități';
-  const onmScore = analysis?.scaledScores?.onm7p?.score ?? (isSound ? 7.0 : 2.8);
-  const bacScore = analysis?.scaledScores?.bac10p?.score ?? (isSound ? 10.0 : 4.6);
-  const scorePct = analysis?.scorePercentage ?? (isSound ? 100 : 40);
-
   return (
-    <View
-      style={styles.card}
-      onLayout={(e: LayoutChangeEvent) =>
-        setCardHeight(e.nativeEvent.layout.height)
-      }
-    >
-      {/* Scanning beam */}
-      {phase === 'scanning' && (
-        <Animated.View
-          style={[styles.scanningBeamContainer, beamAnimatedStyle]}
-          pointerEvents="none"
-        >
-          <LinearGradient
-            colors={['transparent', 'rgba(91,82,242,0.25)', 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.scanningBeam}
-          />
-        </Animated.View>
-      )}
+    <View style={styles.manuscriptSheet}>
+      {/* 1. Archival Dossier Header */}
+      <View style={styles.dossierTopRow}>
+        <View style={styles.domainTag}>
+          <Text style={styles.domainTagText}>{domainText.toUpperCase()}</Text>
+        </View>
+        <Text style={styles.dossierCode} numberOfLines={1}>
+          {problemCode}
+        </Text>
+      </View>
 
-      {/* Header Banner: Domain & Official Scales */}
-      <View style={styles.cardHeaderRow}>
-        <View style={styles.domainBadge}>
-          <Sparkles size={11} color={C.primary} strokeWidth={2} />
-          <Text style={styles.domainBadgeText}>{domainText.toUpperCase()}</Text>
+      {/* 2. Official Grading Rubric Table (Tabel de Punctaj) */}
+      <View style={styles.rubricTable}>
+        <View style={styles.rubricCell}>
+          <Text style={styles.rubricLabel}>BAREM ONM</Text>
+          <Text
+            style={[
+              styles.rubricValue,
+              { color: isSound ? C.success : C.flaw },
+            ]}
+          >
+            {onmScore.toFixed(2)}
+            <Text style={styles.rubricMax}> / 7.00p</Text>
+          </Text>
         </View>
 
-        <View style={styles.scoreBadgesRow}>
-          <View style={[styles.scalePill, isSound ? styles.scalePillSound : styles.scalePillFlaw]}>
-            <Text style={styles.scalePillLabel}>ONM</Text>
-            <Text style={styles.scalePillValue}>{onmScore.toFixed(1)}/7.0p</Text>
-          </View>
-          <View style={[styles.scalePill, isSound ? styles.scalePillSound : styles.scalePillFlaw]}>
-            <Text style={styles.scalePillLabel}>BAC</Text>
-            <Text style={styles.scalePillValue}>{bacScore.toFixed(1)}/10p</Text>
-          </View>
+        <View style={styles.rubricVerticalRule} />
+
+        <View style={styles.rubricCell}>
+          <Text style={styles.rubricLabel}>BAREM BAC</Text>
+          <Text style={styles.rubricValue}>
+            {bacScore.toFixed(2)}
+            <Text style={styles.rubricMax}> / 10.0p</Text>
+          </Text>
+        </View>
+
+        <View style={styles.rubricVerticalRule} />
+
+        <View style={styles.rubricCell}>
+          <Text style={styles.rubricLabel}>SCOR FORMAL</Text>
+          <Text
+            style={[
+              styles.rubricValue,
+              { color: isSound ? C.success : C.flaw },
+            ]}
+          >
+            {scorePct}%
+          </Text>
         </View>
       </View>
 
-      {/* Problem Block */}
-      <View style={styles.problemBlock}>
-        <Text style={styles.problemLabel}>PROBLEM STATEMENT</Text>
-        <Text style={styles.problemText}>{problemText}</Text>
+      {/* 3. Problem Statement Block */}
+      <View style={styles.problemSection}>
+        <Text style={styles.sectionSmallHeader}>§1 · ENUNȚUL PROBLEMEI</Text>
+        <View style={styles.problemQuoteBox}>
+          <MathText style={styles.problemStatementText}>{problemText}</MathText>
+        </View>
       </View>
 
-      {/* Steps Container */}
-      <View style={styles.stepsContainer}>
-        {steps.map((step) => {
-          const stepNum = step.step;
-          const isThisFatalFlaw = !isSound && stepNum === fatalFlawStep;
-          const isThisCascaded = !isSound && (step.isCascadedFailure || stepNum > fatalFlawStep);
-          const isThisSound = isSound || (step.isSound && !isThisFatalFlaw && !isThisCascaded);
+      {/* 4. Deductive Chain & Left Dependency Rail */}
+      <View style={styles.deductiveSection}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionSmallHeader}>
+            §2 · LANȚUL DEDUCTIV & ARBORELE AST
+          </Text>
+          <Text style={styles.railLegendText}>
+            {isSound
+              ? 'Toate dependențele verificate'
+              : fatalFlawStep != null
+              ? `Fractură la pasul ${fatalFlawStep}`
+              : 'Necesită revizuire'}
+          </Text>
+        </View>
 
-          if (isThisSound) {
+        <View style={styles.railList}>
+          {steps.map((step, idx) => {
+            const stepNum = step.step;
+            const isLast = idx === steps.length - 1;
+            const isThisSound = isSound || step.isSound;
+            const isThisCascaded =
+              !isThisSound && Boolean(step.isCascadedFailure) && stepNum !== fatalFlawStep;
+            // Any other unsound step is shown as a flaw; only the first one gets the editor.
+            const isThisFlaw = !isThisSound && !isThisCascaded;
+            const isThisFatalFlaw = isThisFlaw && stepNum === fatalFlawStep;
+
+            const awardedPts = ((step.awardedPercentage / 100) * 7.0).toFixed(2);
+            const lostPts = (((step.maxPercentage - step.awardedPercentage) / 100) * 7.0).toFixed(2);
+
             return (
-              <View key={`step-${stepNum}`} style={styles.verifiedStep}>
-                <View style={styles.stepTopRow}>
-                  <Text style={styles.stepLabel}>
-                    STEP {stepNum} · {step.label.toUpperCase()}
-                  </Text>
-                  <View style={styles.scoreAndCheck}>
-                    <Text style={styles.stepPointsPositive}>+{step.onmPoints.toFixed(2)}p</Text>
-                    <View style={styles.checkBadge}>
-                      <Check size={12} color={C.success} strokeWidth={2.5} />
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.stepBody}>{step.commentRo}</Text>
-              </View>
-            );
-          }
-
-          if (isThisFatalFlaw) {
-            return (
-              <Animated.View key={`step-${stepNum}`} style={stepFlawShakeStyle}>
-                <Pressable
-                  onPress={onToggleInspector}
-                  style={styles.step3FlawContainer}
-                >
-                  <View style={styles.stepTopRow}>
-                    <View style={styles.step3TitleRow}>
-                      <Animated.View style={alertAnimatedStyle}>
-                        <AlertTriangle size={14} color={C.flaw} strokeWidth={2.5} />
-                      </Animated.View>
-                      <Text style={styles.step3Label}>
-                        STEP {stepNum} · {step.label.toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.astBreakBadge}>
-                      <Text style={styles.astBreakText}>AST Node Break</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.stepBody}>
-                    {fixed && (
-                      <Text style={styles.fixedHighlightSpan}>
-                        [Condiție adăugată: x &gt; -1 garantând 1 + x &gt; 0]{' '}
-                      </Text>
-                    )}
-                    {step.commentRo}
-                  </Text>
-
-                  {!inspectorOpen ? (
-                    <Text style={styles.collapsedHint}>
-                      Apasă pentru a inspecta nodul AST și regula încălcată
-                    </Text>
-                  ) : (
-                    <Animated.View
-                      entering={FadeIn.duration(200)}
-                      exiting={FadeOut.duration(150)}
-                      layout={LinearTransition.springify().damping(SPRING_CONFIG.damping).stiffness(SPRING_CONFIG.stiffness)}
-                      style={styles.inspectorContainer}
+              <View key={`step-${stepNum}`} style={styles.railRow}>
+                {/* Left Margin Gutter: Node + Points + Vertical Dependency Line */}
+                <View style={styles.railGutter}>
+                  <View
+                    style={[
+                      styles.stepNode,
+                      isThisSound && styles.stepNodeSound,
+                      isThisFlaw && styles.stepNodeFlaw,
+                      isThisCascaded && styles.stepNodeCascaded,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.stepNodeText,
+                        isThisSound && { color: C.success },
+                        isThisFlaw && { color: '#FFFFFF' },
+                        isThisCascaded && { color: C.mutedFg },
+                      ]}
                     >
-                      {/* Code pill */}
-                      <View style={styles.codePill}>
-                        <Text style={styles.codePillText}>
-                          <Text style={{ color: C.primary, fontFamily: F.mono }}>
-                            {analysis?.astNodeBreak?.rule || 'Inequality_Multiply_Rule'}
-                          </Text>
-                          {' :: Condition ['}
-                          <Text style={{ color: C.warn, fontFamily: F.mono }}>
-                            {analysis?.astNodeBreak?.condition || '1 + x > 0'}
-                          </Text>
-                          {'] → '}
-                          {fixed ? (
-                            <Text style={{ color: C.success, fontFamily: F.mono }}>
-                              ASSERTED (re-analizează)
-                            </Text>
-                          ) : (
-                            <Text style={{ color: C.warn, fontFamily: F.mono }}>
-                              UNVERIFIED
-                            </Text>
-                          )}
-                        </Text>
-                      </View>
+                      §{stepNum}
+                    </Text>
+                  </View>
 
-                      {/* Interactive toggle button */}
+                  <Text
+                    style={[
+                      styles.gutterPoints,
+                      isThisSound && { color: C.success },
+                      (isThisFlaw || isThisCascaded) && { color: C.flaw },
+                    ]}
+                  >
+                    {step.awardedPercentage > 0 ? `+${awardedPts}p` : '0.00p'}
+                  </Text>
+
+                  {!isLast && (
+                    <View
+                      style={[
+                        styles.connectorLine,
+                        isThisSound
+                          ? styles.connectorLineSolid
+                          : styles.connectorLineBroken,
+                      ]}
+                    />
+                  )}
+                </View>
+
+                {/* Right Column: Step Manuscript Content */}
+                <View style={styles.railContentCol}>
+                  {isThisSound && (
+                    <View style={styles.soundStepBox}>
+                      <View style={styles.stepHeaderRow}>
+                        <Text style={styles.stepTitleMono}>
+                          PASUL {stepNum} · {step.label.toUpperCase()}
+                        </Text>
+                        <View style={styles.verifiedTag}>
+                          <Check size={11} color={C.success} strokeWidth={2.5} />
+                          <Text style={styles.verifiedTagText}>
+                            {step.maxPercentage}%
+                          </Text>
+                        </View>
+                      </View>
+                      <MathText style={styles.stepBodyText}>{step.commentRo}</MathText>
+                    </View>
+                  )}
+
+                  {isThisFlaw && (
+                    <Animated.View style={isThisFatalFlaw ? stepFlawShakeStyle : undefined}>
                       <Pressable
-                        onPress={handleEditConditionPress}
-                        style={[
-                          styles.inspectorButton,
-                          fixed
-                            ? styles.inspectorButtonFixed
-                            : styles.inspectorButtonUnfixed,
-                        ]}
+                        onPress={isThisFatalFlaw ? onToggleInspector : undefined}
+                        style={styles.flawStepBox}
                       >
-                        {fixed ? (
-                          <>
-                            <Check size={14} color={C.success} strokeWidth={2} />
-                            <Text style={styles.inspectorButtonTextFixed}>
-                              Condiție specificată (1 + x &gt; 0)
+                        <View style={styles.stepHeaderRow}>
+                          <View style={styles.flawTitleCluster}>
+                            <AlertTriangle
+                              size={13}
+                              color={C.flaw}
+                              strokeWidth={2.2}
+                            />
+                            <Text style={styles.flawTitleMono}>
+                              PASUL {stepNum} · {step.label.toUpperCase()}
                             </Text>
-                          </>
-                        ) : (
-                          <>
-                            <Pencil size={14} color={C.foreground} strokeWidth={2} />
-                            <Text style={styles.inspectorButtonTextUnfixed}>
-                              Corectează pasul: adaugă premisa lipsă
+                          </View>
+                          <View style={styles.flawPenaltyBadge}>
+                            <Text style={styles.flawPenaltyText}>
+                              −{lostPts}p
                             </Text>
-                          </>
+                          </View>
+                        </View>
+
+                        <MathText style={styles.stepBodyText}>{step.commentRo}</MathText>
+
+                        {/* Inspector Toggle Bar */}
+                        {isThisFatalFlaw && (
+                        <View style={styles.inspectorToggleBar}>
+                          <Text style={styles.inspectorToggleLabel}>
+                            {inspectorOpen
+                              ? 'Ascunde diagnosticul'
+                              : 'Vezi ce lipsește și corectează pasul'}
+                          </Text>
+                          {inspectorOpen ? (
+                            <ChevronUp size={14} color={C.flaw} />
+                          ) : (
+                            <ChevronDown size={14} color={C.flaw} />
+                          )}
+                        </View>
+                        )}
+
+                        {isThisFatalFlaw && inspectorOpen && (
+                          <Animated.View
+                            entering={FadeIn.duration(180)}
+                            exiting={FadeOut.duration(120)}
+                            layout={LinearTransition.springify()
+                              .damping(SPRING_CONFIG.damping)
+                              .stiffness(SPRING_CONFIG.stiffness)}
+                            style={styles.astLedgerBox}
+                          >
+                            {/* Formal AST Diagnostic Table */}
+                            {(violatedRule || missingCondition) && (
+                            <View style={styles.astDiagnosticTable}>
+                              <View style={styles.astDiagRow}>
+                                <Text style={styles.astDiagKey}>REGULA AST:</Text>
+                                <Text style={styles.astDiagVal}>
+                                  {violatedRule || '—'}
+                                </Text>
+                              </View>
+                              <View style={styles.astDiagRow}>
+                                <Text style={styles.astDiagKey}>
+                                  PREMISĂ LIPSĂ:
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.astDiagVal,
+                                    { color: hasCorrection ? C.success : C.flaw },
+                                  ]}
+                                >
+                                  {missingCondition || '—'}{' '}
+                                  {hasCorrection
+                                    ? '[CORECTURĂ SCRISĂ — RE-AUDITEAZĂ]'
+                                    : '[NEDEMONSTRATĂ]'}
+                                </Text>
+                              </View>
+                            </View>
+                            )}
+
+                            <View style={styles.correctionActionsRow}>
+                              <Pressable
+                                onPress={handleStartCorrection}
+                                style={[
+                                  styles.canonicalFixBtn,
+                                  hasCorrection && styles.canonicalFixBtnActive,
+                                ]}
+                              >
+                                {hasCorrection ? (
+                                  <Check size={13} color={C.success} strokeWidth={2.5} />
+                                ) : (
+                                  <Pencil size={13} color={C.foreground} strokeWidth={2} />
+                                )}
+                                <Text
+                                  style={
+                                    hasCorrection
+                                      ? styles.canonicalFixTextActive
+                                      : styles.canonicalFixText
+                                  }
+                                >
+                                  {editingInline
+                                    ? 'Ascunde editorul'
+                                    : hasCorrection
+                                    ? 'Editează corectura'
+                                    : `Rescrie pasul ${stepNum}`}
+                                </Text>
+                              </Pressable>
+                            </View>
+
+                            {/* Option B: Inline Manual Step Rewrite */}
+                            {editingInline && (
+                              <Pressable
+                                onPress={(e) => e.stopPropagation()}
+                                style={styles.inlineEditorBox}
+                              >
+                                <Text style={styles.inlineEditorLabel}>
+                                  REDACTEAZĂ JUSTIFICAREA PASULUI {stepNum}:
+                                </Text>
+                                <TextInput
+                                  style={styles.inlineTextInput}
+                                  multiline
+                                  autoFocus
+                                  maxLength={4000}
+                                  placeholder="Scrie pasul corectat, cu justificarea completă…"
+                                  placeholderTextColor={C.mutedFg}
+                                  value={customStepText}
+                                  onChangeText={(txt) => onChangeCustomStepText?.(txt)}
+                                />
+                                <Text style={styles.inlineEditorHint}>
+                                  Apasă „Re-Auditează” jos când ai terminat.
+                                </Text>
+                              </Pressable>
+                            )}
+                          </Animated.View>
                         )}
                       </Pressable>
                     </Animated.View>
                   )}
-                </Pressable>
-              </Animated.View>
-            );
-          }
 
-          // Cascaded Failure step
-          return (
-            <View
-              key={`step-${stepNum}`}
-              style={[
-                styles.cascadedStep,
-                { opacity: 0.55 },
-              ]}
-            >
-              <View style={styles.stepTopRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <ShieldAlert size={13} color={C.flaw} strokeWidth={2} />
-                  <Text style={styles.cascadedStepLabel}>
-                    STEP {stepNum} · {step.label.toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.awaitingBadge}>
-                  <PauseCircle size={12} color={C.flaw} strokeWidth={2} />
-                  <Text style={styles.awaitingText}>
-                    COLAPS ÎN CASCADĂ (0p)
-                  </Text>
+                  {isThisCascaded && (
+                    <View style={styles.cascadedStepBox}>
+                      <View style={styles.stepHeaderRow}>
+                        <View style={styles.flawTitleCluster}>
+                          <CornerDownRight
+                            size={13}
+                            color={C.mutedFg}
+                            strokeWidth={2}
+                          />
+                          <Text style={styles.cascadedTitleMono}>
+                            PASUL {stepNum} · {step.label.toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.cascadeTag}>
+                          <Text style={styles.cascadeTagText}>
+                            ANULAT ÎN CASCADĂ (0p)
+                          </Text>
+                        </View>
+                      </View>
+                      <MathText style={styles.cascadedBodyText}>
+                        {step.commentRo ||
+                          `Acest pas depinde de un pas invalidat, deci nu primește punctaj.`}
+                      </MathText>
+                    </View>
+                  )}
                 </View>
               </View>
-              <Text style={styles.stepBody}>
-                {step.commentRo || `Pas anulat (0 puncte). Acest pas depinde deductiv de Pasul ${fatalFlawStep} care a fost invalidat.`}
-              </Text>
-            </View>
-          );
-        })}
+            );
+          })}
+        </View>
+      </View>
+
+      {/* 5. Official Grading Commission Remarks (Raportul Comisiei) */}
+      <View style={styles.commissionSection}>
+        <View style={styles.commissionHeaderRow}>
+          <View style={styles.commissionTitleLeft}>
+            <Scale size={15} color={C.primary} strokeWidth={2} />
+            <Text style={styles.commissionTitle}>
+              §3 · OBSERVAȚIILE COMISIEI DE EVALUARE
+            </Text>
+          </View>
+          <Text
+            style={[
+              styles.commissionVerdictTag,
+              { color: isSound ? C.success : C.flaw },
+            ]}
+          >
+            {isSound ? 'DEMONSTRAȚIE VALIDĂ' : 'NECESITĂ REVIZUIRE'}
+          </Text>
+        </View>
+
+        <MathText style={styles.commissionCritiqueBody}>
+          {analysis.teacherCritiqueRo || analysis.explanationRo}
+        </MathText>
+
+        {/* Reference Theorems & Manuscript Links */}
+        {analysis?.relevantTheorems && analysis.relevantTheorems.length > 0 && (
+          <View style={styles.theoremsBlock}>
+            <Text style={styles.theoremsSubheader}>
+              TEOREME & AXIOME INVOCATE ÎN DEMONSTRAȚIE:
+            </Text>
+            {analysis.relevantTheorems.map((th, idx) => (
+              <View key={`thm-${idx}`} style={styles.theoremItem}>
+                <Text style={styles.theoremItemName}>{th.name}</Text>
+                <MathText style={styles.theoremItemStatement}>
+                  {th.statement}
+                </MathText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Quick Reference Links to Sheets */}
+        <View style={styles.sheetLinksRow}>
+          {onOpenTheorem && (
+            <Pressable
+              onPress={onOpenTheorem}
+              style={({ pressed }) => [
+                styles.sheetLinkBtn,
+                pressed && { backgroundColor: C.muted },
+              ]}
+            >
+              <BookOpen size={13} color={C.primary} strokeWidth={2} />
+              <Text style={styles.sheetLinkText}>Breviar Teoreme</Text>
+            </Pressable>
+          )}
+          {onOpenTypst && Boolean(analysis.typstSource) && (
+            <Pressable
+              onPress={onOpenTypst}
+              style={({ pressed }) => [
+                styles.sheetLinkBtn,
+                pressed && { backgroundColor: C.muted },
+              ]}
+            >
+              <FileCode size={13} color={C.primary} strokeWidth={2} />
+              <Text style={styles.sheetLinkText}>Exportă Sursa Typst</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  manuscriptSheet: {
     backgroundColor: C.card,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
-    position: 'relative',
-    overflow: 'hidden',
+    padding: 18,
   },
-  scanningBeamContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 48,
-    zIndex: 10,
+  dossierTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
   },
-  scanningBeam: {
-    width: '100%',
-    height: '100%',
+  domainTag: {
+    backgroundColor: C.muted,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
-  cardHeaderRow: {
+  domainTagText: {
+    fontFamily: F.monoMed,
+    fontSize: 10,
+    color: C.foreground,
+    letterSpacing: 0.6,
+  },
+  dossierCode: {
+    fontFamily: F.mono,
+    fontSize: 10.5,
+    color: C.mutedFg,
+  },
+  rubricTable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.background,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 6,
+    paddingVertical: 10,
+    marginBottom: 20,
+  },
+  rubricCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rubricVerticalRule: {
+    width: 1,
+    height: 28,
+    backgroundColor: C.border,
+  },
+  rubricLabel: {
+    fontFamily: F.mono,
+    fontSize: 9.5,
+    color: C.mutedFg,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  rubricValue: {
+    fontFamily: F.monoMed,
+    fontSize: 14,
+    color: C.foreground,
+  },
+  rubricMax: {
+    fontFamily: F.mono,
+    fontSize: 11,
+    color: C.mutedFg,
+  },
+  problemSection: {
+    marginBottom: 22,
+  },
+  sectionSmallHeader: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.mutedFg,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  problemQuoteBox: {
+    borderLeftWidth: 3,
+    borderLeftColor: C.primary,
+    backgroundColor: C.background,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+  },
+  problemStatementText: {
+    fontSize: 15.5,
+    lineHeight: 23,
+    color: C.foreground,
+  },
+  deductiveSection: {
+    marginBottom: 20,
+  },
+  sectionTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  domainBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(91,82,242,0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  domainBadgeText: {
-    fontSize: 10.5,
+  railLegendText: {
     fontFamily: F.mono,
-    color: C.primary,
-    fontWeight: '700',
-  },
-  scoreBadgesRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  scalePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  scalePillSound: {
-    backgroundColor: 'rgba(16,185,129,0.1)',
-    borderColor: 'rgba(16,185,129,0.3)',
-  },
-  scalePillFlaw: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.3)',
-  },
-  scalePillLabel: {
-    fontSize: 9.5,
-    fontFamily: F.mono,
-    color: C.mutedFg,
-    fontWeight: '600',
-  },
-  scalePillValue: {
-    fontSize: 10.5,
-    fontFamily: F.mono,
-    color: C.foreground,
-    fontWeight: '700',
-  },
-  problemBlock: {
-    marginBottom: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  problemLabel: {
     fontSize: 10,
-    fontFamily: F.mono,
     color: C.mutedFg,
-    letterSpacing: 1.2,
-    marginBottom: 6,
   },
-  problemText: {
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: C.foreground,
-    fontFamily: F.math,
+  railList: {
+    flexDirection: 'column',
   },
-  stepsContainer: {
-    gap: 12,
+  railRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
   },
-  verifiedStep: {
+  railGutter: {
+    width: 46,
+    alignItems: 'center',
+    paddingRight: 8,
+  },
+  stepNode: {
+    width: 28,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNodeSound: {
+    backgroundColor: C.successSoft,
+    borderColor: 'rgba(22, 101, 52, 0.35)',
+  },
+  stepNodeFlaw: {
+    backgroundColor: C.flaw,
+    borderColor: C.flaw,
+  },
+  stepNodeCascaded: {
     backgroundColor: C.muted,
-    borderRadius: 12,
-    borderWidth: 1,
     borderColor: C.border,
-    padding: 12,
+    borderStyle: 'dashed',
   },
-  cascadedStep: {
-    backgroundColor: 'rgba(239,68,68,0.04)',
-    borderRadius: 12,
+  stepNodeText: {
+    fontFamily: F.monoMed,
+    fontSize: 11,
+  },
+  gutterPoints: {
+    fontFamily: F.mono,
+    fontSize: 9.5,
+    marginTop: 3,
+    marginBottom: 4,
+  },
+  connectorLine: {
+    flex: 1,
+    width: 1,
+    minHeight: 16,
+    marginVertical: 2,
+  },
+  connectorLineSolid: {
+    backgroundColor: C.border,
+  },
+  connectorLineBroken: {
+    borderLeftWidth: 1.5,
+    borderLeftColor: C.flaw,
+    borderStyle: 'dashed',
+    backgroundColor: 'transparent',
+  },
+  railContentCol: {
+    flex: 1,
+    paddingBottom: 14,
+  },
+  soundStepBox: {
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.2)',
+    borderColor: C.borderLight,
+    borderRadius: 6,
     padding: 12,
   },
-  stepTopRow: {
+  stepHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 6,
   },
-  scoreAndCheck: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  stepPointsPositive: {
+  stepTitleMono: {
+    flex: 1,
+    fontFamily: F.monoMed,
     fontSize: 10.5,
-    fontFamily: F.mono,
-    color: C.success,
-    fontWeight: '600',
-  },
-  stepLabel: {
-    fontSize: 10.5,
-    fontFamily: F.mono,
     color: C.mutedFg,
-    letterSpacing: 0.8,
+    letterSpacing: 0.4,
   },
-  cascadedStepLabel: {
-    fontSize: 10.5,
-    fontFamily: F.mono,
-    color: C.flaw,
-    letterSpacing: 0.8,
-  },
-  checkBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(16,185,129,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepBody: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: C.foreground,
-    fontFamily: F.math,
-  },
-  step3FlawContainer: {
-    backgroundColor: 'rgba(239,68,68,0.06)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.flaw,
-    padding: 12,
-  },
-  step3TitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  step3Label: {
-    fontSize: 10.5,
-    fontFamily: F.mono,
-    color: C.flaw,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  astBreakBadge: {
-    backgroundColor: 'rgba(239,68,68,0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  astBreakText: {
-    fontSize: 9.5,
-    fontFamily: F.mono,
-    color: C.flaw,
-    fontWeight: '700',
-  },
-  collapsedHint: {
-    fontSize: 11,
-    fontFamily: F.mono,
-    color: C.mutedFg,
-    marginTop: 8,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  fixedHighlightSpan: {
-    backgroundColor: 'rgba(16,185,129,0.15)',
-    color: C.success,
-    fontWeight: '600',
-  },
-  inspectorContainer: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(239,68,68,0.2)',
-    gap: 8,
-  },
-  codePill: {
-    backgroundColor: C.muted,
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  codePillText: {
-    fontSize: 11,
-    color: C.foreground,
-    fontFamily: F.mono,
-  },
-  inspectorButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  inspectorButtonUnfixed: {
-    backgroundColor: C.card,
-    borderColor: C.border,
-  },
-  inspectorButtonFixed: {
-    backgroundColor: 'rgba(16,185,129,0.1)',
-    borderColor: C.success,
-  },
-  inspectorButtonTextUnfixed: {
-    fontSize: 12,
-    fontFamily: F.mono,
-    color: C.foreground,
-  },
-  inspectorButtonTextFixed: {
-    fontSize: 12,
-    fontFamily: F.mono,
-    color: C.success,
-    fontWeight: '600',
-  },
-  awaitingBadge: {
+  verifiedTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(239,68,68,0.1)',
+    backgroundColor: C.successSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  awaitingText: {
-    fontSize: 9.5,
-    fontFamily: F.mono,
+  verifiedTagText: {
+    fontFamily: F.monoMed,
+    fontSize: 10,
+    color: C.success,
+  },
+  stepBodyText: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: C.foreground,
+  },
+  flawStepBox: {
+    backgroundColor: C.flawSoft,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderColor: 'rgba(185, 28, 28, 0.35)',
+    borderLeftColor: C.flaw,
+    borderRadius: 6,
+    padding: 12,
+  },
+  flawTitleCluster: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  flawTitleMono: {
+    flex: 1,
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
     color: C.flaw,
-    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  flawPenaltyBadge: {
+    backgroundColor: 'rgba(185, 28, 28, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  flawPenaltyText: {
+    fontFamily: F.monoMed,
+    fontSize: 9.5,
+    color: C.flaw,
+  },
+  inspectorToggleBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(185, 28, 28, 0.15)',
+  },
+  inspectorToggleLabel: {
+    fontFamily: F.mono,
+    fontSize: 10.5,
+    color: C.flaw,
+  },
+  astLedgerBox: {
+    marginTop: 10,
+    gap: 10,
+  },
+  astDiagnosticTable: {
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 5,
+    padding: 10,
+    gap: 6,
+  },
+  astDiagRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  astDiagKey: {
+    width: 100,
+    fontFamily: F.mono,
+    fontSize: 10,
+    color: C.mutedFg,
+  },
+  astDiagVal: {
+    flex: 1,
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.foreground,
+  },
+  correctionActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  canonicalFixBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    backgroundColor: C.card,
+    borderColor: C.border,
+  },
+  canonicalFixBtnActive: {
+    backgroundColor: C.successSoft,
+    borderColor: C.success,
+  },
+  canonicalFixText: {
+    fontFamily: F.uiMed,
+    fontSize: 11.5,
+    color: C.foreground,
+  },
+  canonicalFixTextActive: {
+    fontFamily: F.uiSemi,
+    fontSize: 11.5,
+    color: C.success,
+  },
+  manualEditToggleBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.background,
+    justifyContent: 'center',
+  },
+  manualEditToggleText: {
+    fontFamily: F.mono,
+    fontSize: 10.5,
+    color: C.primary,
+  },
+  inlineEditorBox: {
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 5,
+    padding: 10,
+  },
+  inlineEditorHint: {
+    fontFamily: F.ui,
+    fontSize: 11,
+    color: C.mutedFg,
+    marginTop: 6,
+  },
+  inlineEditorLabel: {
+    fontFamily: F.monoMed,
+    fontSize: 9.5,
+    color: C.mutedFg,
+    marginBottom: 6,
+  },
+  inlineTextInput: {
+    fontFamily: F.math,
+    fontSize: 14,
+    color: C.foreground,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    lineHeight: 20,
+  },
+  cascadedStepBox: {
+    backgroundColor: C.background,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    padding: 12,
+    opacity: 0.75,
+  },
+  cascadedTitleMono: {
+    flex: 1,
+    fontFamily: F.mono,
+    fontSize: 10.5,
+    color: C.mutedFg,
+  },
+  cascadeTag: {
+    backgroundColor: C.muted,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cascadeTagText: {
+    fontFamily: F.monoMed,
+    fontSize: 9.5,
+    color: C.flaw,
+  },
+  cascadedBodyText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: C.mutedFg,
+  },
+  commissionSection: {
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  commissionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  commissionTitleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  commissionTitle: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.foreground,
+    letterSpacing: 0.6,
+  },
+  commissionVerdictTag: {
+    fontFamily: F.monoMed,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  commissionCritiqueBody: {
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: C.foreground,
+    fontFamily: F.mathItalic,
+    backgroundColor: C.background,
+    padding: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: C.borderLight,
+    marginBottom: 14,
+  },
+  theoremsBlock: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  theoremsSubheader: {
+    fontFamily: F.mono,
+    fontSize: 9.5,
+    color: C.mutedFg,
+    letterSpacing: 0.6,
+  },
+  theoremItem: {
+    backgroundColor: C.background,
+    borderLeftWidth: 2,
+    borderLeftColor: C.border,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  theoremItemName: {
+    fontFamily: F.monoMed,
+    fontSize: 10.5,
+    color: C.primary,
+    marginBottom: 2,
+  },
+  theoremItemStatement: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: C.foreground,
+  },
+  sheetLinksRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  sheetLinkBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.background,
+  },
+  sheetLinkText: {
+    fontFamily: F.uiMed,
+    fontSize: 12,
+    color: C.primary,
   },
 });

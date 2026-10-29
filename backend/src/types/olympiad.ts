@@ -37,6 +37,7 @@ export interface ASTNodeBreak {
 export interface OlympiadAnalysisResult {
   id: string;
   problemId: string;
+  problemTitle?: string;
   domain: string;
   problemRo: string;
   phase: 'flaw' | 'scanning' | 'sound';
@@ -57,4 +58,8 @@ export interface OlympiadAnalysisResult {
     statement: string;
   }>;
   typstSource: string;
+  proofText?: string; // The submitted proof, kept so re-audits grade the real text
+  isExample?: boolean; // Public showcase analysis, read-only for everyone
+  createdAt?: string;
+  _meta?: { engine: string; model: string };
 }
